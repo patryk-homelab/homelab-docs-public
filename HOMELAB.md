@@ -1027,4 +1027,3 @@ Detailed change history is tracked in this host's Git repository (see the Homela
 
 Already implemented and active: changedetection.io, Paperless-ngx, Pushover backup/homelab alerts, Daily homelab report, Reboot-needed notifier, Speedtest Tracker, Homelab Docs, DIUN, Anti-sleep monitoring, and NAS mount alert.
 
-<!-- TEST-MARKER: simulated concurrent Fedora push for push-retry test, will be reverted -->
