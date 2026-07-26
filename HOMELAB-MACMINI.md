@@ -480,18 +480,6 @@ launchctl print gui/$(id -u)/com.patrykmac.smart-health-monitor
 - Update only to a reviewed, specific stable release tag; never update directly to `master`, nightly, or development branches.
 - SQLite/database migrations may be one-way. Do not roll back against a newer migrated database without restoring the matching data backup.
 
-## Daily update report
-
-- Purpose: lightweight, read-only daily availability report for the Mac mini's documented critical software. It never installs, downloads, upgrades, or restarts software.
-- Script: `/Users/patrykmac/homelab/update-report/macmini-update-report.sh`.
-- LaunchAgent: `com.patrykmac.update-report` at `/Users/patrykmac/Library/LaunchAgents/com.patrykmac.update-report.plist`, scheduled daily at `10:00` in the Mac's configured `Europe/Warsaw` timezone.
-- Checks: macOS via `softwareupdate -l`; Homebrew formulae/casks using existing metadata; MeTube's exact installed stable Git tag against the official latest stable GitHub release (drafts, prereleases, `master`/`main`/`HEAD`, and unreleased commits are ignored); the MeTube venv's `yt-dlp` PyPI release; Uptime Kuma and AdGuard Home stable GitHub releases; UpSnap stable GitHub release (installed version detected via `upsnap --version`, falling back to the documented pinned version `5.4.3`).
-- Tailscale is installed through the App Store and remains outside this report: no Tailscale version query or Tailscale text is emitted in Pushover update notifications.
-- Pushover title: `Mac Mini - Update Report`. The report notifies only when updates are available or an operational check fails; it sends no all-clear notification. It reuses the backup Pushover helper and its existing private credentials file.
-- Logs: `/Users/patrykmac/homelab/update-report/logs/current.log`, with up to three rotated historical logs, plus LaunchAgent stdout/stderr logs in the same directory.
-- Manual report without sending Pushover: `/Users/patrykmac/homelab/update-report/macmini-update-report.sh --dry-run`.
-- Pushover delivery test only: `/Users/patrykmac/homelab/update-report/macmini-update-report.sh --test-notification`.
-
 ## Ollama local LLM runtime
 
 - Status: installed natively with Homebrew; no Docker Desktop, Open WebUI, LM Studio, or additional model manager was installed.
