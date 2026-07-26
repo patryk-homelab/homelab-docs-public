@@ -432,7 +432,7 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 
 ## Docker compose folders
 
-Current expected Docker status: `18/18 running`.
+Current expected Docker status: `18/18 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
 
 Known Compose files under `/home/patryk/docker`:
 
@@ -441,6 +441,7 @@ Known Compose files under `/home/patryk/docker`:
 - `/home/patryk/docker/homarr/compose.yml`
 - `/home/patryk/docker/glances/compose.yml`
 - `/home/patryk/docker/diun/compose.yml`
+- `/home/patryk/docker/forgejo/compose.yml`
 - `/home/patryk/docker/speedtest-tracker/compose.yml`
 - `/home/patryk/docker/changedetection/compose.yml`
 - `/home/patryk/docker/netalertx/compose.yml`
@@ -459,6 +460,7 @@ Known service folders under `/home/patryk/docker`:
   - `/home/patryk/docker/homarr/data` (SQLite database, Redis state, trusted certificates, uploaded/local media, board/app/item/widget/integration and authentication data)
 - `/home/patryk/docker/glances` (pinned Compose only; no persistent metrics cache)
 - `/home/patryk/docker/diun`
+- `/home/patryk/docker/forgejo`
 - `/home/patryk/docker/speedtest-tracker`
 - `/home/patryk/docker/changedetection`
 - `/home/patryk/docker/netalertx`
