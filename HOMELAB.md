@@ -285,6 +285,19 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 
 ## Systemd Workflows / Timers
 
+- **Workflow name**: RAM 24-hour sampler
+  - **Schedule**: every 5 minutes from user-manager startup (`OnBootSec=2min`, `OnUnitActiveSec=5min`, `Persistent=true`).
+  - **Implementation**: `/home/patryk/scripts/ram-sample.sh`, `/home/patryk/.config/systemd/user/ram-sample.service`, and `/home/patryk/.config/systemd/user/ram-sample.timer`.
+  - **Data**: appends epoch timestamps and live RAM-used percentages to `/home/patryk/scripts/ram-24h.log`, pruning entries older than 24 hours on every run. The log is mode 600, bounded, contains no secrets, and is transient operational history rather than recovery data.
+  - **Purpose and safety**: supplies the daily report's `24h high` value. It only reads current memory counters and writes its small rolling log; it installs nothing and has no new dependencies.
+
+- **Workflow name**: Wildcard TLS certificate expiry checker
+  - **Schedule**: weekly on Monday at 08:00 through a systemd user timer (`Persistent=true`, up to 10 minutes accuracy delay). This is clear of the backup, DIUN, title-sync, report, SMART, and Paperless slots.
+  - **Implementation**: `/home/patryk/scripts/tls-cert-expiry-check.sh`, `/home/patryk/.config/systemd/user/tls-cert-expiry-check.service`, and `/home/patryk/.config/systemd/user/tls-cert-expiry-check.timer`.
+  - **Live check**: connects directly to `192.168.10.12:443` with OpenSSL and SNI `kuma.patrykw.uk`, then reads the served wildcard `*.patrykw.uk` certificate's `notAfter` value. It does not inspect Caddy storage and does not require hostname DNS resolution.
+  - **Alerting**: silent above 30 days remaining; sends a weekly Pushover reminder with the exact UTC expiry and days remaining at 30 days or less; sends `MiniPC - Certificate Expiry - EXPIRED` every run after expiry; and sends a distinct high-priority `MiniPC - Certificate Expiry` failure alert if connection, handshake, certificate extraction, or date parsing fails.
+  - **Safety and manual checks**: strictly read-only; it never renews certificates or restarts/touches Caddy. `/home/patryk/scripts/tls-cert-expiry-check.sh --dry-run` performs the live query without Pushover. `/home/patryk/scripts/tls-cert-expiry-check.sh --test-notification` sends only a clearly labelled format test.
+
 - **Workflow name**: SMART health checker
   - **Schedule**: daily at 11:00, `Persistent=true`, with up to 10 minutes systemd accuracy delay. This is intentionally separate from the 03:30 backup and 09:00–09:30 report timers.
   - **Implementation**: `/home/patryk/scripts/smart-health-check.sh`, `/etc/systemd/system/smart-health-check.service`, and `/etc/systemd/system/smart-health-check.timer`.
@@ -318,7 +331,7 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
   - **Idempotency**: `git add -A` plus a commit only when the tree actually changed; the collector's own source is excluded from its own scan since it contains the pattern definitions as literal text.
 
 - **Workflow name**: Public GitHub docs push (`homelab-docs-public`)
-  - **Schedule**: event-driven on every change to `/home/patryk/docker/HOMELAB.md` via `homelab-docs-public-github-push.path`, plus a daily fallback at 13:20 (`Persistent=true`). 13:20 is deliberately clear of the 03:30 backup, 04:00 DIUN, 06:30/18:30 title-sync, 09:00/09:15/09:30 report, 11:00 SMART, and 19:00 Paperless slots.
+  - **Schedule**: event-driven on every change to `/home/patryk/docker/HOMELAB.md` via `homelab-docs-public-github-push.path`, plus a daily fallback at 13:20 (`Persistent=true`). 13:20 is deliberately clear of the 03:30 backup, 04:00 DIUN, 06:30/18:30 title-sync, Monday 08:00 TLS check, 09:00/09:30 notifier/report slots, 11:00 SMART, and 19:00 Paperless slots.
   - **Purpose**: one-way mirror of **`HOMELAB.md` only** to the public GitHub repository `https://github.com/patryk-homelab/homelab-docs-public`, so AI chat tools can fetch the canonical documentation from a stable raw-content URL: `https://raw.githubusercontent.com/patryk-homelab/homelab-docs-public/main/HOMELAB.md`. No authentication is needed to read it; a plain `curl` returns the current content.
   - **Scope**: nothing other than `HOMELAB.md` is ever copied, committed, or pushed, and nothing is ever deployed from the working copy back to the canonical file. This is **separate from and unrelated to** the `homelab-repo` -> Forgejo snapshot pipeline, which keeps its own script, repository, units, and deploy key.
   - **Implementation**: `/home/patryk/scripts/push-homelab-docs-public-github.sh` (mode 700), working copy `/home/patryk/homelab-docs-public-github`, and systemd user units `homelab-docs-public-github-push.service`, `.path`, and `.timer`.
@@ -357,7 +370,9 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 | Homelab backup systemd timer | Runs the homelab backup daily | systemd/timer | `systemctl status homelab-backup.timer` | Enabled. Next run is scheduled by systemd with randomized delay. |
 | Homelab repo | Local Git repository versioning homelab docs, Compose files, scripts, and systemd units | Git repository | `/home/patryk/homelab-repo` | One-way, read-only snapshot populated by an explicit allowlist collector; not a deployment source. The snapshot is pushed to Forgejo over SSH via a dedicated deploy key. See Systemd Workflows / Timers and Backup coverage. |
 | Homelab repo collector | Populates `/home/patryk/homelab-repo` from an explicit allowlist | systemd/user timer + script | `/home/patryk/scripts/collect-homelab-repo.sh`, `systemctl --user status homelab-repo-collect.timer` | Runs daily at 09:00. Includes a secret-scan gate that aborts the run before committing if any staged file matches a secret-like pattern. |
-| Daily homelab report | Sends compact miniPC status report through Pushover | systemd/timer + script | `/home/patryk/scripts/daily-homelab-report.sh`, `systemctl status daily-homelab-report.timer` | Runs daily at 09:30. Uses the shared helper directly and does not use Uptime Kuma as a monitor. Includes Docker image update information by reading DIUN data and comparing it with local image digests, and includes Fedora/system update information from separate `dnf`/`dnf5` checks. |
+| Daily homelab report | Sends compact miniPC status report through Pushover | systemd/timer + script | `/home/patryk/scripts/daily-homelab-report.sh`, `systemctl status daily-homelab-report.timer` | Runs daily at 09:30. Shows explicit Uptime, Load, current RAM plus its rolling 24-hour high, unchanged Docker counts, backup/NAS/reboot status, and timer health. Fedora security/critical package status, DIUN findings, Docker image names/count summary, and one critical/important-service recommendation are combined into one Updates paragraph. The former 09:15 standalone update notifier is retired. |
+| RAM 24-hour sampler | Supplies rolling memory high-water data to the daily report | systemd/user timer + script | `/home/patryk/scripts/ram-sample.sh`, `systemctl --user status ram-sample.timer` | Samples live RAM-used percentage every 5 minutes and prunes `/home/patryk/scripts/ram-24h.log` to the latest 24 hours. |
+| TLS certificate expiry check | Monitors the live DNS-01 Caddy wildcard certificate | systemd/user timer + script | `/home/patryk/scripts/tls-cert-expiry-check.sh`, `systemctl --user status tls-cert-expiry-check.timer` | Runs Monday at 08:00. Silent above 30 days, reminds weekly in the final 30 days, alerts every run after expiry, and reports endpoint/check failures separately. Read-only: no renewal or Caddy action. |
 | DIUN | Docker image update checks | Docker Compose | `/home/patryk/docker/diun` | Installed and active. Runs daily at 04:00. Used as the Docker image update source for the Daily homelab report. Does not auto-update containers. Uses Docker socket read-only. Avoid adding duplicate standalone Docker update notifications unless explicitly requested. |
 | Anti-sleep host configuration | Prevents the miniPC from sleeping/suspending | systemd/GDM config + timer | `systemctl status sleep.target suspend.target hibernate.target hybrid-sleep.target`, `/home/patryk/scripts/anti-sleep-check.sh`, `systemctl status anti-sleep-check.timer` | Sleep is disabled through masked systemd sleep targets, logind and sleep config drop-ins, and GDM power settings. `anti-sleep-check.timer` verifies this every 15 minutes and sends Pushover notification only for new suspicious suspend attempts after baseline or config drift. |
 | Forgejo | Self-hosted Git server backing `homelab-repo`'s one-way push | Docker Compose | `/home/patryk/docker/forgejo/compose.yml`, `http://192.168.10.12:3300`, SSH `2222` | Data at `/home/patryk/docker/forgejo/data` (SQLite database, repos, `app.ini`, and host SSH keys under a root-owned `ssh/` subdirectory). Deploy key used for the `homelab-repo` push: `/home/patryk/.ssh/forgejo-homelab-repo-deploy` (mode 600, private key never printed/logged). Reachable via both LAN and Tailscale by default, per the FedoraWorkstation zone's stock behavior; not further restricted. |
@@ -403,7 +418,7 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 - Pushover specific helper: `/home/patryk/scripts/notify-pushover.sh`
 - Pushover secrets: `/home/patryk/scripts/pushover.env` and `/home/patryk/docker/n8n/.env` (for n8n). Secret values are strictly not documented here.
 - Pushover is the active/default notification provider for the homelab. changedetection.io uses Pushover through Apprise with `pover://...` configured manually in its UI. Do not document or expose the actual Pushover tokens or keys.
-- Used for script notifications that do not need Uptime Kuma monitoring, such as reboot-needed, update-available, and daily report notices.
+- Used for script notifications that do not need Uptime Kuma monitoring, such as reboot-needed, daily report, SMART, and certificate-expiry notices.
 - Daily homelab report notifications use the title `MiniPC - Daily Report` (with ` - WARN` appended only when that report has warnings).
 - Example usage:
 
@@ -418,13 +433,7 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 - Does not use Uptime Kuma.
 - Does not install updates and does not reboot automatically.
 - Avoids repeated spam by storing the last notified state in `/home/patryk/scripts/reboot-needed-check.state`.
-- Update Available notifier: `/home/patryk/scripts/update-available-check.sh`
-- Uses the shared helper: `/home/patryk/scripts/notify.sh`
-- Runs daily at 09:15 through `update-available-check.timer` when the systemd unit and timer are installed.
-- Sends notification when Fedora package updates are available or when the update check fails.
-- Does not use Uptime Kuma.
-- Does not install updates and does not reboot automatically.
-- Avoids repeated spam by storing the last notified update-list or failure state in `/home/patryk/scripts/update-available-check.state`.
+- The former standalone Update Available notifier, its 09:15 timer/service, script, and state file are retired. Its read-only `dnf5`/`dnf` availability check now runs inside the daily report and contributes to the single Updates paragraph.
 - Boot notification: `/home/patryk/scripts/boot-notify.sh`
 - Uses the shared helper: `/home/patryk/scripts/notify.sh`
 - Sends notification every time the miniPC boots through `boot-notify.service` when the systemd service is installed and enabled.
@@ -434,9 +443,10 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 - Daily Homelab Report: `/home/patryk/scripts/daily-homelab-report.sh`
 - Uses the shared helper: `/home/patryk/scripts/notify.sh`
 - Runs daily at 09:30 through `daily-homelab-report.timer` when the systemd unit and timer are installed.
-- Sends one compact report covering host status, Docker counts, backup status, NAS mount health, reboot-needed status, Fedora/system update summary (count, security/critical status, important packages), Docker image update summary from DIUN, and important timers.
+- Sends one compact report with no Host or Kernel lines: explicit Uptime and Load lines; current RAM plus the sampled 24-hour high; Docker counts; backup status and latest age; NAS mount health; reboot-needed status; one merged Updates paragraph covering Fedora availability/security/important packages, DIUN findings, Docker image summary, and a final critical/important-service recommendation; and important timers.
 - Does not use Uptime Kuma as a monitor.
 - Does not install updates, reboot, restart containers, or run speedtests. Updates remain manual/planned maintenance only.
+- `/home/patryk/scripts/daily-homelab-report.sh --dry-run` performs the live read-only report checks and prints the exact would-be report without Pushover. `--test-notification` sends only a clearly labelled notification-format test.
 
 ## Docker compose folders
 
@@ -608,16 +618,18 @@ Current backup includes:
   - `/home/patryk/scripts/daily-homelab-report.sh`
   - `/etc/systemd/system/daily-homelab-report.service` if installed
   - `/etc/systemd/system/daily-homelab-report.timer` if installed
+  - `/home/patryk/scripts/ram-sample.sh`
+  - `/home/patryk/.config/systemd/user/ram-sample.service`
+  - `/home/patryk/.config/systemd/user/ram-sample.timer`
+- TLS certificate expiry checker:
+  - `/home/patryk/scripts/tls-cert-expiry-check.sh`
+  - `/home/patryk/.config/systemd/user/tls-cert-expiry-check.service`
+  - `/home/patryk/.config/systemd/user/tls-cert-expiry-check.timer`
 - Reboot Needed notifier:
   - `/home/patryk/scripts/reboot-needed-check.sh`
   - `/home/patryk/scripts/reboot-needed-check.state` if it exists
   - `/etc/systemd/system/reboot-needed-check.service` if installed
   - `/etc/systemd/system/reboot-needed-check.timer` if installed
-- Update Available notifier:
-  - `/home/patryk/scripts/update-available-check.sh`
-  - `/home/patryk/scripts/update-available-check.state` if it exists
-  - `/etc/systemd/system/update-available-check.service` if installed
-  - `/etc/systemd/system/update-available-check.timer` if installed
 - Boot notification:
   - `/home/patryk/scripts/boot-notify.sh`
   - `/etc/systemd/system/boot-notify.service` if installed
