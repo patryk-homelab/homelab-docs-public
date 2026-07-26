@@ -103,6 +103,7 @@ less ~/docker/HOMELAB.md
 | changedetection.io | `changedetection` | 5000 | `192.168.10.12:5000` / `http://192.168.10.12:5000/` | None |
 | CyberChef | `cyberchef` | 8080 | `192.168.10.12:8083` / `http://192.168.10.12:8083/` | None; `https://cyberchef.patrykw.uk/` |
 | Czkawka | `czkawka` | 5800 | `192.168.10.12:8084` / `http://192.168.10.12:8084/` | None; LAN-only, no public exposure; ad-hoc/occasional use, not monitored |
+| FileBrowser Quantum | `filebrowser` | 80 | `192.168.10.12:8085` / `http://192.168.10.12:8085/`; `100.118.164.107:8085` / `http://100.118.164.107:8085/` (Tailscale) | None; LAN + Tailscale only, full read-write access to `/home/patryk`; source `private: true` blocks public/anonymous shares; optional (not enforced) 2FA |
 | n8n | `n8n` | 5678 | `192.168.10.12:5678` / `http://192.168.10.12:5678/` | None |
 | UpSnap | `upsnap` | 8090 | `http://192.168.10.12:8090/` | None; `https://upsnap.patrykw.uk/` |
 | Caddy reverse proxy | `reverse-proxy` | 80 | `192.168.10.12:80` / `http://192.168.10.12/` (Homarr fallback) | Homarr, Paperless |
@@ -152,6 +153,7 @@ Wake-on: g
 | NetAlertX | `http://192.168.10.12:8020/` | UI `8020`; GraphQL `8021` | Docker Compose | `/home/patryk/docker/netalertx/compose.yml`, `/home/patryk/docker/netalertx/data` | Yes | LAN device monitoring with pinned image `ghcr.io/netalertx/netalertx:26.7.1`, scanning only `192.168.10.0/24` on physical interface `enp1s0`. Server-side identification combines ARPSCAN, IPNEIGH (including NDP/IPv6) and NMAPDEV every five minutes; NMAPDEV host discovery retains ARP and adds ICMP echo, TCP SYN (22/80/443/3389/445/8080), TCP ACK (80/443), and UDP (53/67/123/161/5353) probes, with five retries and a 90-second host cap. ICMP status runs every five minutes; AVAHISCAN/mDNS, NSLOOKUP reverse DNS, DIG reverse DNS and NBTSCAN/NetBIOS are scheduled every five minutes with `REFRESH_FQDN=True`; VNDRPDT maintains the MAC vendor database. NMAP runs for newly found devices to collect ports and OS-fingerprint evidence without repeatedly scanning all devices. The application uses approved host networking and listens on `0.0.0.0:8020`; active and permanent firewalld rich rules accept `8020/8021` only from `192.168.10.0/24` and reject other sources, blocking Tailscale access. Homarr links directly to the LAN URL. Pushover credentials are configured securely in native NetAlertX settings; alerts are limited to genuinely new devices in `192.168.10.0/24`, and secret values are not documented. The `INTRNT` plugin shows the public Internet IP, which is expected behavior. No router, AdGuard, or other external-service importer is integrated; no reverse proxy, DNS rewrite, or Tailscale service access is configured. |
 | CyberChef | `http://192.168.10.12:8083`; DNS-01 TLS alias `https://cyberchef.patrykw.uk/` | `8083`; Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/cyberchef/docker-compose.yml` | Yes | Stateless local data conversion and analysis tool. Bound only to the miniPC LAN IP, not publicly exposed or proxied; Homarr links to it directly. `https://cyberchef.patrykw.uk/` is proxied by the separate internal-only DNS-01 TLS Caddy instance. |
 | Czkawka | `http://192.168.10.12:8084/` | `8084` (container `5800`) | Docker Compose | `/home/patryk/docker/czkawka/compose.yml`, `/home/patryk/docker/czkawka/config` | Yes | Occasional/ad-hoc duplicate-file finder, pinned to `jlesage/czkawka:v26.07.2`, bound only to the miniPC LAN IP with no Caddy route, `fedora.lan` alias, DNS-01 TLS hostname, or Cloudflare tunnel. `/home/patryk` is mounted as `/storage:ro`, so the container cannot modify host files. Not monitored by Uptime Kuma and intentionally excluded from the Daily Homelab Report. |
+| FileBrowser Quantum | `http://192.168.10.12:8085/`; `http://100.118.164.107:8085/` (Tailscale) | `8085` (container `80`) | Docker Compose | `/home/patryk/docker/filebrowser/compose.yml`, protected `/home/patryk/docker/filebrowser/.env`, `/home/patryk/docker/filebrowser/data` | Yes | Pinned to `gtstef/filebrowser:1.5.0-stable`; the sole intentionally full read-write service for `/home/patryk`, including administrative paths and secrets, as an informed LAN + Tailscale-only choice (not public Internet exposure). It runs as `filebrowser` (1000:1000), drops all capabilities, and uses `no-new-privileges`. Its private `Home` source disables public/anonymous shares; password sign-in is enabled, sign-up is disabled, and 2FA is available but not enforced. |
 | Fedora Web Console / Cockpit | `https://192.168.10.12:9090/`, hostname/LAN alternative `https://fedora:9090/` | `9090` | Fedora system service | System package / Cockpit service | No | Fedora Web Console for host administration. Homarr uses the IP-based HTTPS URL. The Cockpit service is intentionally not monitored by Uptime Kuma but remains active and accessible. |
 | n8n | `http://192.168.10.12:5678` | `5678` | Docker Compose | `/home/patryk/docker/n8n/docker-compose.yml`, `/home/patryk/docker/n8n/.env`, `/home/patryk/docker/n8n/data` | No | Local automation/orchestration for homelab workflows. Not publicly exposed. Contains two active workflows: Disk free space alert and Homelab Status API. Note: encryption key is stored securely in `.env`. n8n is local-only over HTTP. N8N_SECURE_COOKIE=false is intentionally set because n8n is accessed over LAN HTTP, not HTTPS. Do not expose n8n publicly with this setting. |
 | Paperless-ngx | Primary `http://192.168.10.12:8010/Paperless/`; alias `http://fedora.lan/Paperless/`; DNS-01 TLS alias `https://paperless.patrykw.uk/Paperless/` | Direct `8010`; Caddy alias `80`; Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/paperless/docker-compose.yml`, `/home/patryk/docker/paperless/.env`, `/home/patryk/docker/paperless/pgdata`, `/home/patryk/docker/paperless/data`, `/home/patryk/Documents/paperless/media` | Yes | Document management.  `PAPERLESS_FORCE_SCRIPT_NAME=/Paperless` means direct root redirects to its direct-IP `/Paperless/` path; it never redirects to `fedora.lan`. PostgreSQL and Redis have no published ports. The PostgreSQL DB password now lives in `/home/patryk/docker/paperless/.env` (referenced via `${POSTGRES_PASSWORD}` substitution) and is no longer hardcoded in `docker-compose.yml`. Consume and export folders are excluded from backup. `PAPERLESS_ALLOWED_HOSTS` in `/home/patryk/docker/paperless/.env` includes `paperless.patrykw.uk`, and `PAPERLESS_CSRF_TRUSTED_ORIGINS=https://paperless.patrykw.uk` is set, so the DNS-01 TLS alias works alongside the existing LAN URLs. |
@@ -168,6 +170,7 @@ Wake-on: g
 - The same private board is available at `http://192.168.10.12:7575/` and `http://fedora.lan/`. Caddy proxies the latter to the direct LAN-bound Homarr listener; both origins use the same database, board, app records, widget layout, integration data, and local assets. Login cookies are origin-specific, so a user may need to authenticate once per origin.
 - Board sections, left to right: Monitoring (AdGuard Home, Uptime Kuma, Change Detection, Speedtest); Management (Router, Web Console); Apps (CyberChef, FreshRSS, n8n, Paperless); Mac Mini (AdGuard Home - Mac, Uptime Kuma - Mac, MeTube).
 - Czkawka is an occasional duplicate-file finder at `http://192.168.10.12:8084/`. Its Homarr app ID is `pvwy1xt5nzldec85tskqstb2` and dashboard item ID is `zbqp3qhb2qt8iwsohtup43ac`; it uses the official `czkawka.svg` icon and is currently auto-placed in Homarr's unnamed `empty` default section. It still needs to be manually dragged into Apps alongside CyberChef, FreshRSS, n8n, and Paperless.
+- Filebrowser is a FileBrowser Quantum link at `http://192.168.10.12:8085/`. Its Homarr app ID is `iln0ehbxqlrp9jyr8b9naazm` and dashboard item ID is `scz9q4qb8y9odofdeputcsd1`; it uses the official `filebrowser-quantum.svg` icon and was auto-placed in Homarr's unnamed `empty` default section. It still needs to be manually dragged into Apps.
 - Five additional Homarr application tiles remain in Homarr's automatic placement. The current authenticated MCP schema does not provide safe read or placement operations for existing board items/sections: the user must manually drag `UpSnap`, `Forgejo`, and `GitHub` into Management, `UpSnap - Mac` into Mac Mini, and `Czkawka` into Apps.
   - `UpSnap` is the Fedora miniPC UpSnap instance: URL `http://192.168.10.12:8090`; health URL `http://192.168.10.12:8090/api/health`; Homarr app ID `qu97k9v530nicivda6v5omuc`; dashboard item ID `e66ixcjo1ocghaeaoxjq1u5y`; official Homarr icon `upsnap.svg`; intended section Management. This tile links to the miniPC UpSnap instance.
   - `UpSnap - Mac` is the Mac mini native UpSnap instance: URL `http://192.168.10.13:8090`; health URL `http://192.168.10.13:8090/api/health`; Homarr app ID `bi6ndnndxytrfjqmzt3xnc06`; dashboard item ID `o753cbfpf27lcmb7pgpn2g9n`; official Homarr icon `upsnap.svg`; intended section Mac Mini. This tile is only a remote link to the native Mac mini UpSnap service.
@@ -457,7 +460,7 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 
 ## Docker compose folders
 
-Current expected Docker status: `19/19 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
+Current expected Docker status: `20/20 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
 
 Known Compose files under `/home/patryk/docker`:
 
@@ -472,6 +475,7 @@ Known Compose files under `/home/patryk/docker`:
 - `/home/patryk/docker/netalertx/compose.yml`
 - `/home/patryk/docker/cyberchef/docker-compose.yml`
 - `/home/patryk/docker/czkawka/compose.yml`
+- `/home/patryk/docker/filebrowser/compose.yml`
 - `/home/patryk/docker/n8n/docker-compose.yml`
 - `/home/patryk/docker/upsnap/compose.yml`
 - `/home/patryk/docker/reverse-proxy/compose.yml`
@@ -494,6 +498,8 @@ Known service folders under `/home/patryk/docker`:
 - `/home/patryk/docker/cyberchef`
 - `/home/patryk/docker/czkawka`
   - `/home/patryk/docker/czkawka/config` (Czkawka persistent GUI configuration, state, and logs; `/home/patryk` is mounted in the container only as `/storage:ro`)
+- `/home/patryk/docker/filebrowser`
+  - `/home/patryk/docker/filebrowser/data` (FileBrowser Quantum config, BoltDB database, cache, password hashes, and encrypted TOTP secrets; private-backup-only, never part of the public documentation mirror)
 - `/home/patryk/docker/n8n`
 - `/home/patryk/docker/upsnap`
 - `/home/patryk/docker/reverse-proxy`
@@ -567,6 +573,9 @@ Current backup includes:
   - `/home/patryk/docker/czkawka/config` containing persistent application configuration, state, and logs, archived under `bind_mounts/czkawka_config/`
   - The `/home/patryk:/storage:ro` mount needs no separate Docker-backup coverage because it is only a read-only view of already-covered host user data.
   - It is intentionally not monitored by Uptime Kuma and is not part of the Daily Homelab Report.
+- FileBrowser Quantum:
+  - `/home/patryk/docker/filebrowser/compose.yml` and protected `.env` are covered by the generic Compose-file/`.env` collection.
+  - `/home/patryk/docker/filebrowser/data` is explicitly archived under `bind_mounts/filebrowser_data/`; it contains `config.yaml`, the v1 stable BoltDB database, cache, password hashes, and encrypted TOTP secrets. This is sensitive private-backup-only material and is never added to the public GitHub documentation mirror.
 - Reverse proxy:
   - `/home/patryk/docker/reverse-proxy/compose.yml`
   - `/home/patryk/docker/reverse-proxy/Caddyfile`
