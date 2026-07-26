@@ -1,0 +1,1007 @@
+# Homelab Inventory
+
+Last updated: 2026-07-25
+
+This file documents the current miniPC Fedora homelab setup. It intentionally does not contain passwords, tokens, API keys, Uptime Kuma push URLs, or other secrets.
+
+## How to open this file
+
+- Canonical local path: `/home/patryk/docker/HOMELAB.md`
+- SMB access path: `//192.168.10.12/documents/homelab/HOMELAB.md`
+- Note: `/home/patryk/docker` itself is not exposed over SMB.
+
+```bash
+less ~/docker/HOMELAB.md
+```
+
+## Important IP addresses
+
+- Router: Cudy WR3600
+- Router LAN IP: `192.168.10.1`
+- LAN subnet: `192.168.10.0/24`
+- miniPC LAN IP: `192.168.10.12`
+- Mac mini LAN IP: `192.168.10.13`
+- miniPC mDNS hostname: `fedora.local`
+- miniPC Tailscale IP: `100.118.164.107`
+- miniPC Wake-on-LAN MAC: `68:1d:ef:4e:2e:a9`
+- Synology NAS: DS223j
+- Synology NAS IP: `192.168.10.92`
+- NAS backup mount: `/mnt/nas-minipc-backup`
+- NAS share: `//192.168.10.92/minipc-backup`
+
+## Router / LAN recovery design
+
+- Router is Cudy WR3600 at `192.168.10.1`.
+- LAN subnet is `192.168.10.0/24`.
+- miniPC Fedora is `192.168.10.12`.
+- Synology NAS DS223j is `192.168.10.92`.
+- miniPC Wake-on-LAN MAC is `68:1d:ef:4e:2e:a9`.
+- Router and OpenVPN access must stay independent from miniPC, Tailscale, and AdGuard Home.
+- Do not configure router or DHCP in a way that can accidentally remove emergency access to the router.
+
+## OpenVPN on Cudy router
+
+- OpenVPN Server runs on the Cudy WR3600 router.
+- Purpose: emergency access to the home LAN and router panel even if miniPC, Tailscale, or AdGuard Home are down.
+- Router panel over VPN: `http://192.168.10.1`
+- NAS over VPN: `https://192.168.10.92:5001`
+- miniPC over VPN, if the miniPC is running: `192.168.10.12`
+- OpenVPN is critical as the management fallback when DNS or the miniPC fails.
+
+## DNS policy
+
+- DNS normal mode: DHCP DNS in the Cudy router now uses local AdGuard Home on the miniPC as primary DNS `192.168.10.12` and AdGuard Home on the Mac mini as secondary DNS `192.168.10.13`.
+- `192.168.10.12` is the Fedora miniPC running local AdGuard Home DNS.
+- `192.168.10.13` is the Mac mini running the secondary/fallback AdGuard Home DNS instance.
+- Goal in normal mode: keep ad blocking available through mirrored AdGuard instances while preserving local LAN visibility on the primary miniPC resolver when clients use it.
+- Important tradeoff: some clients may use both DHCP DNS servers in parallel instead of treating the second entry as strict failover, so both AdGuard instances should stay mirrored closely enough to avoid inconsistent filtering results.
+- DNS maintenance mode: during Fedora/system update or reboot maintenance, the user may temporarily add a public resolver such as `1.1.1.1` as alternate DNS on the router.
+- That temporary maintenance-mode DNS fallback is intentional and is not automatically a misconfiguration.
+- Purpose of maintenance mode: keep internet access working if the miniPC or AdGuard Home is unavailable during update or reboot.
+- Outside a planned maintenance window, do not leave a public DNS such as `1.1.1.1` configured next to the homelab AdGuard DNS entries longer than necessary because clients may use it in parallel and bypass AdGuard Home.
+- After successful Fedora/system maintenance and verification, change router DHCP DNS back to primary `192.168.10.12` and secondary `192.168.10.13`.
+- Emergency fallback is manual: connect through OpenVPN to the Cudy router, open the router panel, then change DHCP DNS from `192.168.10.12` to external DNS such as `1.1.1.1` / `8.8.8.8` or a verified AdGuard DNS Cloud resolver.
+- Router and OpenVPN should remain independent from miniPC.
+
+## AdGuard Home DNS behavior
+
+- Local AdGuard Home runs on miniPC: `http://192.168.10.12:3002`, and fallback at `http://100.118.164.107:3002` over Tailscale.
+- Router DHCP hands out `192.168.10.12` as primary DNS and `192.168.10.13` as secondary DNS.
+- Because many clients may query both DHCP DNS servers, the Fedora and Mac mini AdGuard instances should remain mirrored for filters and upstream behavior where practical.
+- When clients use DNS `192.168.10.12` through DHCP, AdGuard Home on the miniPC should see LAN clients as `192.168.10.x`.
+- `100.x.x.x` addresses in AdGuard Home are most likely Tailscale clients.
+- `172.20.0.1` is most likely Docker gateway or Docker-network traffic, not an unknown LAN device.
+
+## Direct primary access and fedora.lan aliases
+
+- Primary service access is direct LAN IP plus each service's verified published host port. `fedora.lan` is the Homarr dashboard alias and an additional LAN/Tailscale service alias.
+- `fedora.lan` is resolved by the Fedora AdGuard Home DNS rewrite `fedora.lan -> 192.168.10.12`.
+- Supported Caddy aliases are:
+  - Homarr: `http://fedora.lan/`
+  - Paperless: `http://fedora.lan/Paperless/`
+- Caddy redirects `/Paperless` to `/Paperless/`. It accepts the canonical routes only for Host `fedora.lan`; arbitrary Host headers return `404`.
+- Uptime Kuma 2.4.0 has no supported base-path setting: its HTML, dashboard redirect, assets, and Socket.IO endpoints are root-absolute.  Its supported administration URL remains `http://192.168.10.12:3001`; `/Kuma/` is deliberately not proxied so that it cannot be mistaken for a working login/WebSocket route.
+- AdGuard Home has no supported web UI base-path setting: its login/UI/API paths are root-absolute.  Its supported administration URL remains `http://192.168.10.12:3002`; `/AdGuard/` is deliberately not proxied so that login/API behavior is not broken.
+- Homarr application links use verified direct LAN URLs, including Paperless (`http://192.168.10.12:8010/Paperless/`).
+- Paperless uses `PAPERLESS_URL=http://fedora.lan`, `PAPERLESS_FORCE_SCRIPT_NAME=/Paperless`, and allows `fedora.lan` plus the LAN IP. Direct `:8010` access remains same-origin and redirects only to its IP-based `/Paperless/` path.
+- `fedora.local` is retained temporarily as a LAN-only compatibility alias for Homarr and lowercase Paperless routes. It is not canonical and must not be used for remote access.
+- Tailscale remote access requires a tailnet split-DNS nameserver entry for domain `lan` pointing to `192.168.10.12`, while keeping MagicDNS enabled and global DNS unchanged.  The miniPC advertises the approved subnet route `192.168.10.0/24`, which remote clients need in order to reach that DNS server and HTTP service.
+- The miniPC cannot safely create the tailnet split-DNS rule from its local CLI.  In the Tailscale admin console, open **DNS → Nameservers → Add nameserver**, enter `192.168.10.12`, select **Restrict to domain**, enter `lan`, save, and leave MagicDNS enabled.  Do not add it as a global nameserver.
+- AdGuard returns `192.168.10.12` for `fedora.lan`; TCP/UDP DNS listens on `192.168.10.12:53`, Caddy listens on `192.168.10.12:80`, and the active and persistent Fedora firewall zones permit `dns`, `http`, and `mdns`. Remote-client DNS/HTTP verification remains pending the above admin-console split-DNS setting.
+
+### Web-service access matrix
+
+| Service | Container | Container port | Published host port / direct URL | `fedora.lan` alias |
+|---|---|---:|---|---|
+| Homarr | `homarr` | 7575 | `192.168.10.12:7575` / `http://192.168.10.12:7575/` | `http://fedora.lan/`; `https://m.patrykw.uk/` |
+| Uptime Kuma | `uptime-kuma` | 3001 | `192.168.10.12:3001` / `http://192.168.10.12:3001/` | None; no reliable base-path support; `https://kuma.patrykw.uk/` |
+| AdGuard Home UI | `adguardhome` | 3000 | `192.168.10.12:3002` / `http://192.168.10.12:3002/` | None; no reliable base-path support; `https://adguard.patrykw.uk/` |
+| AdGuard DNS | `adguardhome` | 53 TCP/UDP | `192.168.10.12:53` | Provides the `fedora.lan` rewrite |
+| Paperless-ngx | `paperless` | 8000 | `192.168.10.12:8010` / `http://192.168.10.12:8010/Paperless/` | `http://fedora.lan/Paperless/`; `https://paperless.patrykw.uk/Paperless/` |
+| FreshRSS | `freshrss` | 80 | `192.168.10.12:8181` / `http://192.168.10.12:8181/` | None |
+| Speedtest Tracker | `speedtest-tracker` | 80 | `192.168.10.12:8082` / `http://192.168.10.12:8082/` | None; `https://speedtest.patrykw.uk/` |
+| changedetection.io | `changedetection` | 5000 | `192.168.10.12:5000` / `http://192.168.10.12:5000/` | None |
+| CyberChef | `cyberchef` | 8080 | `192.168.10.12:8083` / `http://192.168.10.12:8083/` | None; `https://cyberchef.patrykw.uk/` |
+| Homelab Docs | `homelab-docs` | 8000 | `192.168.10.12:3004` / `http://192.168.10.12:3004/` | None; `https://md.patrykw.uk/` |
+| n8n | `n8n` | 5678 | `192.168.10.12:5678` / `http://192.168.10.12:5678/` | None |
+| UpSnap | `upsnap` | 8090 | `http://192.168.10.12:8090/` | None; `https://upsnap.patrykw.uk/` |
+| Caddy reverse proxy | `reverse-proxy` | 80 | `192.168.10.12:80` / `http://192.168.10.12/` (Homarr fallback) | Homarr, Paperless |
+| Caddy (DNS-01 TLS) | `caddy` | 443 | `192.168.10.12:443` / 12 site blocks under one wildcard cert `*.patrykw.uk` (see Web services / dashboards) | None; separate Caddy instance |
+
+Containers without a published host port are internal-only dependencies and have no direct LAN URL: `paperless-db` (PostgreSQL 5432), `paperless-broker-1` (Redis 6379), and `diun`.
+
+## WOL / recovery
+
+- miniPC Wake-on-LAN MAC: `68:1d:ef:4e:2e:a9`.
+- Fedora interface: `enp1s0`.
+- Wake-on-LAN mode: magic packet. The NetworkManager connection `Wired connection 1` has persisted `802-3-ethernet.wake-on-lan=magic`; NetworkManager reapplies this property whenever the connection is activated, including after boot.
+- Expected runtime NIC state is `Wake-on: g`. Unprivileged `ethtool enp1s0` cannot expose the Wake-on line because it returns a netlink permission error, so runtime `Wake-on: g` has not been independently observed.
+- Waking from full shutdown also depends on a BIOS/firmware option such as Wake on LAN or Power On By PCIe. BIOS/firmware configuration cannot be authoritatively verified from Fedora, and waking from full shutdown has not been proven.
+- After the next planned reboot, the operator must verify:
+
+```bash
+sudo ethtool enp1s0 | grep Wake-on
+```
+
+  Expected output must still include:
+
+```text
+Wake-on: g
+```
+
+- Recheck Wake-on-LAN after kernel, NIC-driver, NetworkManager, or firmware updates.
+- Synology DS223j can send a Wake-on-LAN magic packet to the miniPC on the same LAN.
+- OpenVPN to Cudy plus NAS WOL provides a recovery path when the miniPC is powered off but the router and NAS are still running.
+- UpSnap on the miniPC provides a web UI to send Wake-on-LAN magic packets on the LAN. Its Mac mini device uses IP `192.168.10.13`, MAC `14:98:77:6b:d2:f9`, and netmask `255.255.255.0`, which resolves to broadcast `192.168.10.255` over UDP port `9`.
+- The Apple Silicon Mac mini wakes from sleep only via WOL, never from a full shutdown. Recovery after power loss is handled by the Mac's autorestart setting, not WOL.
+- A native UpSnap instance runs on the Mac mini at `http://192.168.10.13:8090` to wake the Fedora miniPC. The Homarr `UpSnap - Mac` tile is only a remote link to that native Mac mini service; no Mac mini service or configuration was changed from Fedora.
+
+## Web services / dashboards
+
+| Service | URL | Port | Type | Folder/config path | Backup covered | Notes |
+|---|---|---:|---|---|---|---|
+| Homarr | Primary `http://192.168.10.12:7575/`; Caddy LAN-IP fallback `http://192.168.10.12/`; alias `http://fedora.lan/`; DNS-01 TLS alias `https://m.patrykw.uk/` | Direct `7575`; Caddy `80`; Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/homarr/compose.yml`, `/home/patryk/docker/homarr/data` | Yes | Homarr `v1.71.0` is bound only to `192.168.10.12:7575`. Caddy routes the LAN-IP fallback and `fedora.lan` root to the same Homarr backend. `https://m.patrykw.uk/` is proxied by the separate internal-only DNS-01 TLS Caddy instance. No Docker socket is mounted. |
+| Glances | Internal-only `http://glances:61208` from Homarr | No host port | Docker Compose | `/home/patryk/docker/glances/compose.yml` | Yes | Fedora miniPC CPU/RAM backend for Homarr. Image `nicolargo/glances:4.5.5`; connected only to `homarr_default`, no Docker socket, host mount, privileged mode, or runtime cache. |
+| FreshRSS | `http://192.168.10.12:8181` | `8181` | Docker Compose | `/home/patryk/docker/freshrss/compose.yml` | Yes | Data volumes: `freshrss_freshrss_data`, `freshrss_freshrss_extensions`. Working LAN browser URL is `http://192.168.10.12:8181/`. Working LAN mobile/API URL is `http://192.168.10.12:8181/api/greader.php`. Tailscale API URL `http://100.118.164.107:8181/api/greader.php` works only through Tailscale and should not be used for normal home LAN refresh. Refresh mechanism: in-container cron via `CRON_MIN=*/20`; default FreshRSS feed TTL is 1800 seconds / 30 minutes. Updates may still arrive in batches depending on feed cache state, upstream errors, or feed-specific failures. `IEEE Spectrum` (`https://spectrum.ieee.org/feeds/feed.rss`) should be reviewed separately if re-added. `/freshrss` is not currently reverse-proxied and should not be used unless a reverse-proxy route is added later. |
+| AdGuard Home | `http://192.168.10.12:3002`; DNS-01 TLS alias `https://adguard.patrykw.uk/` | `3002`, DNS `53`; Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/adguardhome/compose.yml` | Yes | DNS bound to `100.118.164.107:53` and `192.168.10.12:53`. Router DHCP currently hands out `192.168.10.12` as primary DNS and `192.168.10.13` as secondary DNS; clients may use both, so the two AdGuard instances should stay mirrored. `https://adguard.patrykw.uk/` is proxied by the separate internal-only DNS-01 TLS Caddy instance. |
+| Uptime Kuma | `http://192.168.10.12:3001`; DNS-01 TLS alias `https://kuma.patrykw.uk/` | `3001`; Caddy DNS-01 `443` | Docker | `/home/patryk/homelab/uptime-kuma/data` | Yes | Current data is a bind mount; backup script includes it under `bind_mounts/uptime_kuma_data/`. The backup push monitor exists as a separate push type. |
+
+| UpSnap | `http://192.168.10.12:8090`; DNS-01 TLS alias `https://upsnap.patrykw.uk/` | `8090`; Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/upsnap/compose.yml`, `/home/patryk/docker/upsnap/data` | Yes | Wake-on-LAN web app (SvelteKit/Go/PocketBase), pinned to `ghcr.io/seriousm4x/upsnap:5.4.3`. It uses `network_mode: host`, but its web UI is bound only to `192.168.10.12:8090` through `UPSNAP_HTTP_LISTEN`, not exposed on Tailscale or `0.0.0.0`. Firewall `8090/tcp` is permanently allowed in the `enp1s0` zone. The admin account is managed in-app; DIUN tracks image updates. `https://upsnap.patrykw.uk/` is proxied by the separate internal-only DNS-01 TLS Caddy instance. |
+| Speedtest Tracker | `http://192.168.10.12:8082`; DNS-01 TLS alias `https://speedtest.patrykw.uk/` | `8082`; Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/speedtest-tracker`, `/home/patryk/docker/speedtest-tracker/config` | Yes | SQLite, no external DB. Tracks home internet only, not Starlink truck internet. Schedule: 00:00, 06:00, 12:00, 18:00 daily. Homarr provides both its normal application link and native Internet Performance widget. `https://speedtest.patrykw.uk/` is proxied by the separate internal-only DNS-01 TLS Caddy instance. |
+| changedetection.io | `http://192.168.10.12:5000` | `5000` | Docker Compose | `/home/patryk/docker/changedetection/compose.yml`, `/home/patryk/docker/changedetection/datastore` | Yes | Website and product price change monitoring. Notifications are configured manually in the UI through Pushover/Apprise; do not document or expose secret values. Homarr links to this service via LAN. |
+| NetAlertX | `http://192.168.10.12:8020/` | UI `8020`; GraphQL `8021` | Docker Compose | `/home/patryk/docker/netalertx/compose.yml`, `/home/patryk/docker/netalertx/data` | Yes | LAN device monitoring with pinned image `ghcr.io/netalertx/netalertx:26.7.1`, scanning only `192.168.10.0/24` on physical interface `enp1s0`. Server-side identification combines ARPSCAN, IPNEIGH (including NDP/IPv6) and NMAPDEV every five minutes; NMAPDEV host discovery retains ARP and adds ICMP echo, TCP SYN (22/80/443/3389/445/8080), TCP ACK (80/443), and UDP (53/67/123/161/5353) probes, with five retries and a 90-second host cap. ICMP status runs every five minutes; AVAHISCAN/mDNS, NSLOOKUP reverse DNS, DIG reverse DNS and NBTSCAN/NetBIOS are scheduled every five minutes with `REFRESH_FQDN=True`; VNDRPDT maintains the MAC vendor database. NMAP runs for newly found devices to collect ports and OS-fingerprint evidence without repeatedly scanning all devices. The application uses approved host networking and listens on `0.0.0.0:8020`; active and permanent firewalld rich rules accept `8020/8021` only from `192.168.10.0/24` and reject other sources, blocking Tailscale access. Homarr links directly to the LAN URL. Pushover credentials are configured securely in native NetAlertX settings; alerts are limited to genuinely new devices in `192.168.10.0/24`, and secret values are not documented. The `INTRNT` plugin shows the public Internet IP, which is expected behavior. No router, AdGuard, or other external-service importer is integrated; no reverse proxy, DNS rewrite, or Tailscale service access is configured. |
+| CyberChef | `http://192.168.10.12:8083`; DNS-01 TLS alias `https://cyberchef.patrykw.uk/` | `8083`; Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/cyberchef/docker-compose.yml` | Yes | Stateless local data conversion and analysis tool. Bound only to the miniPC LAN IP, not publicly exposed or proxied; Homarr links to it directly. `https://cyberchef.patrykw.uk/` is proxied by the separate internal-only DNS-01 TLS Caddy instance. |
+| Fedora Web Console / Cockpit | `https://192.168.10.12:9090/`, hostname/LAN alternative `https://fedora:9090/` | `9090` | Fedora system service | System package / Cockpit service | No | Fedora Web Console for host administration. Homarr uses the IP-based HTTPS URL. The Cockpit service is intentionally not monitored by Uptime Kuma but remains active and accessible. |
+| Homelab Docs | `http://192.168.10.12:3004`; DNS-01 TLS alias `https://md.patrykw.uk/` | `3004`; Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/homelab-docs/compose.yml`, `/home/patryk/docker/homelab-docs/server.py` | Yes | Read-only browser view of `/home/patryk/docker/HOMELAB.md`; Homarr links to it via LAN. `https://md.patrykw.uk/` is proxied by the separate internal-only DNS-01 TLS Caddy instance. Not to be confused with the separate, internet-published `homelab-docs-public` service. |
+| n8n | `http://192.168.10.12:5678` | `5678` | Docker Compose | `/home/patryk/docker/n8n/docker-compose.yml`, `/home/patryk/docker/n8n/.env`, `/home/patryk/docker/n8n/data` | No | Local automation/orchestration for homelab workflows. Not publicly exposed. Contains two active workflows: Disk free space alert and Homelab Status API. Note: encryption key is stored securely in `.env`. n8n is local-only over HTTP. N8N_SECURE_COOKIE=false is intentionally set because n8n is accessed over LAN HTTP, not HTTPS. Do not expose n8n publicly with this setting. |
+| Paperless-ngx | Primary `http://192.168.10.12:8010/Paperless/`; alias `http://fedora.lan/Paperless/`; DNS-01 TLS alias `https://paperless.patrykw.uk/Paperless/` | Direct `8010`; Caddy alias `80`; Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/paperless/docker-compose.yml`, `/home/patryk/docker/paperless/.env`, `/home/patryk/docker/paperless/pgdata`, `/home/patryk/docker/paperless/data`, `/home/patryk/Documents/paperless/media` | Yes | Document management.  `PAPERLESS_FORCE_SCRIPT_NAME=/Paperless` means direct root redirects to its direct-IP `/Paperless/` path; it never redirects to `fedora.lan`. PostgreSQL and Redis have no published ports. Consume and export folders are excluded from backup. `PAPERLESS_ALLOWED_HOSTS` in `/home/patryk/docker/paperless/.env` includes `paperless.patrykw.uk`, and `PAPERLESS_CSRF_TRUSTED_ORIGINS=https://paperless.patrykw.uk` is set, so the DNS-01 TLS alias works alongside the existing LAN URLs. |
+| Reverse proxy | LAN-IP Homarr fallback `http://192.168.10.12/`; aliases `http://fedora.lan/` and `/Paperless/` | `80` bound to `127.0.0.1` and `192.168.10.12` | Docker Compose / Caddy container | `/home/patryk/docker/reverse-proxy/compose.yml`, `/home/patryk/docker/reverse-proxy/Caddyfile` | Yes | Caddy routes Homarr at the root and retains the Paperless subpath with its trailing-slash redirect. It passes the normal reverse-proxy Host and client headers and returns 404 for unrelated hosts. |
+| Caddy (DNS-01 TLS) | 12 site blocks (see below), one wildcard cert `*.patrykw.uk` | `443` bound only to `192.168.10.12` | Docker Compose / custom Caddy build | `/home/patryk/docker/caddy/compose.yml`, `/home/patryk/docker/caddy/Caddyfile`, `/home/patryk/docker/caddy/Dockerfile`, `/home/patryk/docker/caddy/.env` | Yes | Separate Caddy instance (`caddy:2-builder` + `caddy-dns/cloudflare` via `xcaddy`) that obtains one wildcard Let's Encrypt certificate (`*.patrykw.uk`) through ACME DNS-01 against the Cloudflare-managed `patrykw.uk` zone, for internal-only (LAN/Tailscale) access to services that need trusted, non-self-signed TLS. Single `*.patrykw.uk` site block in the Caddyfile with `host`-matched `handle` blocks per hostname, routing to: `kuma.patrykw.uk` -> 192.168.10.12:3001, `m.patrykw.uk` -> 192.168.10.12:7575, `adguard.patrykw.uk` -> 192.168.10.12:3002, `paperless.patrykw.uk` -> 192.168.10.12:8010, `speedtest.patrykw.uk` -> 192.168.10.12:8082, `cyberchef.patrykw.uk` -> 192.168.10.12:8083, `upsnap.patrykw.uk` -> 192.168.10.12:8090, `md.patrykw.uk` -> 192.168.10.12:3004, `adguard-mm.patrykw.uk` -> 192.168.10.13:3002, `kuma-mm.patrykw.uk` -> 192.168.10.13:3003, `metube.patrykw.uk` -> 192.168.10.13:8091, `md-mm.patrykw.uk` -> 192.168.10.13:3004. The four `-mm` hostnames proxy over LAN to Mac mini services documented in the Mac mini's own `HOMELAB-MACMINI.md`, not duplicated here. No port 80 published; DNS-01 does not require public reachability, and no hostname is publicly exposed. AdGuard Home has a confirmed DNS rewrite `kuma.patrykw.uk -> 192.168.10.12`; the 11 new hostnames each need the same `<hostname> -> 192.168.10.12` rewrite added manually before they resolve. Independent of, and does not replace, the plain-HTTP `reverse-proxy` Caddy instance above. `.env` holds `CLOUDFLARE_API_TOKEN` and is backed up but not committed to `homelab-repo`. |
+| Homelab Docs Public | LAN `http://192.168.10.12:3006/<unguessable-32-byte-token-fedora>` and `http://192.168.10.12:3006/<unguessable-32-byte-token-mac>`; public `https://docs.patrykw.uk/<same-tokens>` | `3006` | Docker Compose | `/home/patryk/docker/homelab-docs-public/compose.yml`, `/home/patryk/docker/homelab-docs-public/server.py`, `/home/patryk/docker/homelab-docs-public/.env` | Yes | Single-purpose service, separate from the internal `homelab-docs` container. Two independent token-scoped routes, each checked with `hmac.compare_digest`, both tokens read from `.env`: the Fedora-token route returns only a fresh read of local `HOMELAB.md`; the Mac-token route returns only a live GET to the Mac mini's `http://192.168.10.13:3004/`. Neither route mixes the other host's content. Every other path, including `/` and `/health` and any near-miss token, returns an identical `404`. Both responses are `text/plain` with `Cache-Control: no-store` — always current, never cached, not a snapshot. Two caveats to "always current": (1) `HOMELAB.md` is bind-mounted as a **single file**, so Docker binds the file's inode — any edit that replaces the file via write-new-then-rename (most editors, `sed -i`, `mv`) leaves the container serving the **old** inode indefinitely, and the container must be recreated (`docker compose up -d --force-recreate`) to pick the new file up. In-place edits are unaffected. Observed on 2026-07-25: the container served an 88353-byte body while the host file was 88650 bytes. (2) The server sets `protocol_version = "HTTP/1.1"` so `cloudflared` can hold persistent origin connections; under the stdlib default of HTTP/1.0 the origin closed the socket after every response, which races `cloudflared`'s origin connection pool and can surface as intermittent `502`s. All three response paths send an accurate `Content-Length`, and request bodies are drained before responding, which is what makes those persistent connections safe. Bound only to `192.168.10.12:3006`; `cap_drop: ALL`, `no-new-privileges`, read-only root filesystem, only `HOMELAB.md` bind-mounted read-only (Mac mini content is fetched live over the network, never bind-mounted). Published to the internet only via the `cloudflared` tunnel; see Infrastructure services and Known issues / watch items for the security rationale. |
+| Forgejo | `http://192.168.10.12:3300/` (HTTP web UI); Git-over-SSH `192.168.10.12:2222` | `3300`, SSH `2222` | Docker Compose | `/home/patryk/docker/forgejo/compose.yml`, `/home/patryk/docker/forgejo/data` | Yes | Self-hosted Git server (`codeberg.org/forgejo/forgejo:16.0.1`), SQLite backend, new-user registration disabled (`FORGEJO__service__DISABLE_REGISTRATION=true`). Hosts `homelab-repo`'s one-way snapshot push over SSH via a dedicated deploy key. Reachable via both LAN and Tailscale by default, per the FedoraWorkstation firewalld zone's stock behavior; no restrictive rich rule is configured for it, unlike NetAlertX. See Infrastructure services and Backup coverage. |
+| Synology DSM | `https://192.168.10.92:5001` | `5001` | External NAS | Synology DSM | No | Not hosted on miniPC. NAS stores backup copies. |
+| Tailscale Admin Console | `https://login.tailscale.com/admin/machines` | HTTPS | External SaaS | Tailscale account | No | Useful for tailnet administration, not hosted locally. |
+
+## Homarr dashboard
+
+- Homarr `v1.70.0` is the approved primary miniPC dashboard. Its Compose file is `/home/patryk/docker/homarr/compose.yml`; all recoverable state is under `/home/patryk/docker/homarr/data`, with the encryption secret protected in `/home/patryk/docker/homarr/.env`.
+- Homarr includes one operational Synology DiskStation integration named `Synology NAS`, using DSM URL `https://patrykwo36.synology.me:5001` and DSM service account `homarr-monitor`. The account is limited to DSM access but is a member of the DSM administrators group as required by the integration. The local DNS rewrite is `patrykwo36.synology.me -> 192.168.10.92`. Homarr stores the credentials securely; they are not documented here. The dashboard widgets display CPU usage, memory usage, NAS temperature, volume status, and used and available storage; `volume_1` reports status `normal`. No further configuration is currently required.
+- The same private board is available at `http://192.168.10.12:7575/` and `http://fedora.lan/`. Caddy proxies the latter to the direct LAN-bound Homarr listener; both origins use the same database, board, app records, widget layout, integration data, and local assets. Login cookies are origin-specific, so a user may need to authenticate once per origin.
+- Board sections, left to right: Monitoring (AdGuard Home, Uptime Kuma, Change Detection, Speedtest); Management (Homelab Docs, Router, Web Console); Apps (CyberChef, FreshRSS, n8n, Paperless); Mac Mini (AdGuard Home - Mac, Uptime Kuma - Mac, MeTube, Homelab Docs - Mac). The Homelab Docs - Mac application links to `http://192.168.10.13:3004/`, with health check `http://192.168.10.13:3004/health`.
+- Three additional Homarr application tiles remain in Homarr's automatic placement. The current authenticated MCP schema does not provide safe read or placement operations for existing board items/sections: the user must manually drag `UpSnap` and `Forgejo` into Management, and `UpSnap - Mac` into Mac Mini.
+  - `UpSnap` is the Fedora miniPC UpSnap instance: URL `http://192.168.10.12:8090`; health URL `http://192.168.10.12:8090/api/health`; Homarr app ID `qu97k9v530nicivda6v5omuc`; dashboard item ID `e66ixcjo1ocghaeaoxjq1u5y`; official Homarr icon `upsnap.svg`; intended section Management. This tile links to the miniPC UpSnap instance.
+  - `UpSnap - Mac` is the Mac mini native UpSnap instance: URL `http://192.168.10.13:8090`; health URL `http://192.168.10.13:8090/api/health`; Homarr app ID `bi6ndnndxytrfjqmzt3xnc06`; dashboard item ID `o753cbfpf27lcmb7pgpn2g9n`; official Homarr icon `upsnap.svg`; intended section Mac Mini. This tile is only a remote link to the native Mac mini UpSnap service.
+  - `Forgejo` is the self-hosted Git server: URL `http://192.168.10.12:3300`; health URL `http://192.168.10.12:3300/api/healthz`; Homarr app ID `qqsjtxza2cp20lohtz13d5ak`; dashboard item ID `gyfipchd9tifx2s2kxirustd`; official Homarr icon `forgejo.svg`; intended section Management. This tile links to the Forgejo web UI.
+- Native widgets are below the dashboard groups: the Speedtest Tracker widget is on the left and the System Resources widget is beside it. The normal clickable Speedtest application link remains separate from the genuine native Speedtest Tracker widget, which is backed by the `Internet Performance` integration and displays download, upload, and ping.
+- Fedora miniPC CPU/RAM monitoring is provided by Glances `4.5.5` at `/home/patryk/docker/glances/compose.yml`. It is internal-only on the existing `homarr_default` Docker bridge as `http://glances:61208`, has no published host port, no Docker socket, no host mount, no privileged mode, and drops all Linux capabilities. The documented `pid: host` mode is used only so Glances reads Fedora host CPU/RAM rather than container values.
+- The Fedora miniPC native Homarr System Resources widget uses the `Fedora miniPC - Glances` integration. It displays CPU and Memory only; Network is disabled, and disk, Docker containers, processes, GPU, and all other metrics are disabled or absent. It is placed beside the Speedtest Tracker widget.
+- A separate native System Resources widget labelled `Mac mini` is immediately to the right of the Fedora widget in the same lower native-widget row. It uses the `Mac mini - Glances` integration at `http://192.168.10.13:61208` and displays CPU and Memory only. It depends on the native Mac mini Glances LaunchAgent remaining active; this endpoint is LAN-only, is not published by Fedora Docker, and is not routed through Caddy.
+- Basic Mac mini widget validation/troubleshooting from Fedora:
+
+```bash
+curl -fsS http://192.168.10.13:61208/api/4/cpu
+curl -fsS http://192.168.10.13:61208/api/4/mem
+docker exec homarr node -e 'fetch("http://192.168.10.13:61208/api/4/cpu").then(r => r.json()).then(console.log)'
+docker logs --tail=80 homarr
+```
+- The dark persistent star field is a native board background: a local embedded sparse SVG pattern with a dark navy base, fixed attachment, repeat, and no animation. It does not depend on an external image. Cards remain opaque for readability.
+- Homarr has no Docker socket mount and Docker discovery is not enabled. The Mac mini is represented only by the four existing application links.
+- Active backup coverage contains Homarr's Compose file, protected `.env`, complete `data` tree, SQLite database, Redis state, trusted certificates, assets, board/app/item/widget/integration state, and authentication data.
+
+## Uptime Kuma and Monitoring Architecture
+
+Cross-monitoring is intentionally minimal and bidirectional between the Fedora miniPC and the Mac Mini.
+Both instances have Pushover notifications configured.
+
+### Mac Mini Uptime Kuma
+- URL: http://192.168.10.13:3003
+- Version: 2.4.0
+- Installation: native macOS installation (no Docker Desktop)
+- LaunchAgent: com.patrykmac.uptime-kuma
+- Database: SQLite database
+- Status: Installed and active
+- Active monitors (monitoring Fedora):
+  1. AdGuard - MiniPC (DNS resolver: 192.168.10.12:53)
+  2. MiniPC - Uptime Kuma (URL: http://192.168.10.12:3001)
+  3. MiniPC Ping (host: 192.168.10.12)
+
+### Fedora miniPC Uptime Kuma
+- URL: http://192.168.10.12:3001
+- Active monitors (monitoring Mac Mini):
+  1. AdGuard - Mac Mini (DNS resolver: 192.168.10.13:53)
+  2. Mac Mini - Uptime Kuma (URL: http://192.168.10.13:3003)
+  3. Mac Mini Ping (host: 192.168.10.13)
+- Existing active monitors (local/misc):
+  - FreshRSS
+  - Homelab Backup
+  - NAS Mount
+  - NAS Ping
+  - Tailscale MiniPC
+
+### Omitted monitor
+- **miniPC Cockpit**: The "miniPC Cockpit" monitor is intentionally omitted. The Fedora Web Console / Cockpit service itself remains installed, active, and accessible at https://192.168.10.12:9090/.
+
+## n8n Workflows
+
+There are exactly two active n8n workflows:
+
+- **Workflow name**: Disk free space alert
+  - **Status**: active / verified manually in UI
+  - **Schedule**: every 6 hours
+  - **Checks**: filesystem containing `/home/patryk` via read-only bind mount `/host/home/patryk`. Disk free space alert uses n8n Code node with `fs.statfsSync`, not Execute Command.
+  - **Threshold**: alert when free space < 200 GB
+  - **Alert channel**: Pushover
+  - **Current normal behavior**: if free space is above 200 GB, workflow does nothing.
+  - **Notes**: n8n must remain local-only. `N8N_SECURE_COOKIE=false` is intentionally set for LAN HTTP access and n8n must not be exposed publicly with this setting. n8n `.env` allows only fs builtin for this workflow: `NODE_FUNCTION_ALLOW_BUILTIN=fs`. `PUSHOVER_APP_TOKEN` and `PUSHOVER_USER_KEY` are stored in `.env` and must not be printed or documented as a secret value.
+
+- **Workflow name**: Homelab Status API
+  - **Status**: active. Production-only GET endpoint: `http://192.168.10.12:5678/webhook/homelab-status`.
+  - **Purpose**: read-only, bounded status response for the separate iPhone Scriptable widgets. It returns schema version, timestamp, approved Fedora CPU/RAM/uptime/local and NAS capacity/newest-backup summary, and approved Mac mini CPU/RAM/internal and SSD-MINI capacity/uptime/Ollama/newest-backup summary. Values remain bytes and seconds; no raw upstream data is returned.
+  - **Sources**: internal `http://glances:61208/api/4/{cpu,mem,uptime}`; read-only `/host/home/patryk`; a read-only bind of `/mnt/nas-minipc-backup`; the strict local/NAS `homelab_backup_YYYY-MM-DD_HH-MM.tar.gz` inventory; and fixed Mac source `http://192.168.10.13:3005/status` with five-second timeout, schema version `1`, host `macmini`, and approved-field allowlist.
+  - **NAS safety**: `/home/patryk/scripts/nas-mount-check.sh` writes `/home/patryk/scripts/nas-mount-status.json` only after confirming the expected CIFS mount and its read/write health; it removes the marker on failure. The API uses a marker no older than ten minutes and otherwise returns NAS fields as unavailable/null without treating the automount directory as NAS storage.
+  - **Partial failure**: a failed Mac source produces only a null/unavailable Mac section and concise error indicator; Fedora data remains available. Unknown values are null, never fabricated zeroes.
+  - **Security**: firewalld accepts port `5678` only from `192.168.10.0/24` and Tailscale IPv4/IPv6 ranges before rejecting other sources; the Webhook node enforces the same IP allowlist. Header Auth is intentionally not configured until its credential is created manually in n8n; no secret is stored in the workflow or documented here.
+  - **Side effects and retention**: uses no Execute Command node and cannot trigger commands, backups, updates, SMART tests, notifications, or Ollama inference. Successful and error execution payload retention is disabled for this high-frequency endpoint. Existing n8n data and Compose backup coverage includes its workflow state and read-only mount configuration.
+  - **Safe validation**: `curl -fsS --connect-timeout 3 --max-time 12 http://192.168.10.12:5678/webhook/homelab-status | jq .` (do not add a token to the URL).
+
+## iPhone Scriptable widgets
+
+The final iPhone setup uses two separate medium-sized Scriptable widgets and two separate scripts. Both fetch the same production JSON endpoint; they do not create, select, or require separate n8n workflows.
+
+- **Production endpoint**: `http://192.168.10.12:5678/webhook/homelab-status`
+- **Script names**: `MiniPC Status` and `Mac Mini Status`.
+- Configure each iPhone widget to use its corresponding Scriptable script. The old combined MiniPC/Mac mini widget is obsolete and is not part of the current setup.
+- No Header Auth token is embedded in either script. Access remains through trusted LAN or Tailscale routing and the existing endpoint/firewall/Webhook IP restrictions. Do not add or document a secret.
+
+### MiniPC Status widget
+
+- All labels are English; title is `MiniPC`.
+- Shows rounded CPU and RAM percentages, then `Disk:` and `NAS:` with only their current free capacity, `Uptime:`, `Last Backup:`, `Backup:`, and footer `Updated:` using the source timestamp.
+- `Last Backup:` is directly above `Backup:` and uses compact relative age, for example `12m ago`, `3h ago`, or `2d 4h ago`.
+- `Backup:` maps status to normalized English: `OK`, `Local only`, `NAS unavailable`, `Missing`, or `Unknown`.
+
+### Mac Mini Status widget
+
+- All labels are English; title is `Mac mini`.
+- Shows rounded CPU and RAM percentages, then `Internal SSD:` and `SSD-MINI:` with only their current free capacity, `Uptime:`, `Local Model:`, `Backup:`, and footer `Updated:` using the Mac mini source timestamp.
+- `Local Model:` shows the loaded Ollama model name or names when present; when no model is loaded it displays exactly `No`. It never displays `unloaded`, `without model`, or `Yes`.
+- `Backup:` uses the same normalized English status values as the MiniPC widget.
+
+### Common presentation and refresh rules
+
+- Storage values contain only the rounded free capacity and unit after the label, such as `Disk: 927 GB`; do not append `free` or `wolne`.
+- Use rounded GB below 1 TB and one decimal place in TB at or above 1 TB. CPU and RAM use rounded percentages. Uptime uses compact English, such as `2d 5h` or `8h`. Unavailable values display an em dash.
+- The green/red indicator in the widget title represents online state.
+- Both scripts set exactly:
+
+  ```javascript
+  widget.refreshAfterDate = new Date(Date.now() + 10 * 60 * 1000);
+  ```
+
+  This requests the next refresh no earlier than approximately ten minutes; iOS controls the actual schedule and may refresh later. A failed request schedules a retry request after approximately five minutes. Manually running either Scriptable script fetches fresh data immediately.
+
+**Planned n8n workflows still pending**:
+
+- No duplicate n8n Paperless watchdog is planned right now. Paperless consistency checking already exists as a systemd timer and should not be duplicated in n8n without a clear new use case.
+
+
+## Systemd Workflows / Timers
+
+- **Workflow name**: SMART health checker
+  - **Schedule**: daily at 11:00, `Persistent=true`, with up to 10 minutes systemd accuracy delay. This is intentionally separate from the 03:30 backup and 09:00–09:30 report timers.
+  - **Implementation**: `/home/patryk/scripts/smart-health-check.sh`, `/etc/systemd/system/smart-health-check.service`, and `/etc/systemd/system/smart-health-check.timer`.
+  - **Package**: `smartmontools-7.5-6.fc44.x86_64`.
+  - **Monitored device**: only the internal non-removable SATA SSD `/dev/sda`, FuturePath M600 SATA 2242 1TB, serial `250117AV1T000359`. The Synology CIFS mount is remote storage and is not probed with `smartctl`; zram, partitions, Docker/device-mapper storage, network filesystems, and removable devices are excluded.
+  - **Useful health data**: ATA SMART overall health, temperature, reallocated-sector and reallocated-event counts, pending and offline-uncorrectable sectors, program/erase failure counts, UDMA CRC errors, and ATA error-log presence. Baseline on 2026-07-24: overall health PASSED, 45 C, and all monitored error counters/logs 0. The SSD reports 100 available reserved space and 0 percentage-used endurance indicator through its ATA statistics log.
+  - **Limitations**: the model is not in the Smartmontools 7.5 drive database, so several vendor attributes (160, 161, 163–169, 245) have no reliable meaning and are not used for alerting. Extended `smartctl -x` exits with a command-error bit because some optional data is unsupported; routine monitoring deliberately uses the validated read-only `smartctl -H -A -l error` query instead.
+  - **Alerting**: every SMART-monitor Pushover notification uses the fixed title `MiniPC - Disk Alert`. One alert is sent for a newly failed overall health status, new/increased severe error counters, a non-empty ATA error log, or temperature at/above 70 C. The 70 C threshold is conservative relative to the device-reported 100 C maximum. The checker alerts after two consecutive unreadable/missing-device results, not one transient failure. It does not send daily success messages or repeat unchanged permanent media errors. It sends recovery only when SMART readability returns or an alerted temperature falls below threshold; permanent counters are never described as recovered.
+  - **Manual checks**: `sudo /usr/bin/bash /home/patryk/scripts/smart-health-check.sh --dry-run` performs a real read-only check without Pushover or state writes. `sudo /usr/bin/bash /home/patryk/scripts/smart-health-check.sh --test-notification` sends an explicitly labelled notification-format test only; it does not claim disk failure or change disk state.
+  - **Self-tests**: none are scheduled. Any SMART self-test policy remains an explicit later maintenance decision.
+
+- **Workflow name**: Paperless consistency checker
+  - **Schedule**: daily 19:00
+  - **Purpose**: alert if Paperless documents have missing/wrong Document Type, wrong Storage Path, or UI Title not matching DD-MM-YYYY - 000000x. Paperless consistency automation now safely auto-fills missing Document Type based on Storage Path before checking.
+  - **Checks**: Read-only checks except for the explicit safe autofill step via `docker compose exec` into the `paperless` container running a Django script. It never overwrites an existing Document Type, does not guess from OCR, and alerts if Storage Path is missing/unknown.
+  - **Mapping**: Storage Path CMR -> Document Type CMR by default; customs documents use Document Type Dokument celny with the same CMR Storage Path; Storage Path FAKTURY -> Document Type Faktura.
+  - **Alert channel**: Pushover
+  - **Implementation**: Systemd user timer (`paperless-consistency-check.timer`) and scripts.
+  - **Script paths**:
+    `/home/patryk/scripts/paperless-autofill-document-type.sh`
+    `/home/patryk/scripts/paperless-consistency-check.sh`
+    `/home/patryk/scripts/paperless-consistency-check-notify.sh`
+
+- **Workflow name**: Homelab repo collector
+  - **Schedule**: daily at 09:00, `Persistent=true`.
+  - **Purpose**: copies an explicit allowlist of homelab documentation, Compose files, operational scripts, and systemd unit files into the local Git repository `/home/patryk/homelab-repo`, giving configuration changes history and a rollback path. This is a one-way, read-only snapshot; nothing is deployed from `/home/patryk/homelab-repo`. The snapshot is pushed to Forgejo over SSH via a dedicated deploy key.
+  - **Implementation**: `/home/patryk/scripts/collect-homelab-repo.sh`, `/home/patryk/.config/systemd/user/homelab-repo-collect.service`, and `/home/patryk/.config/systemd/user/homelab-repo-collect.timer`.
+  - **Allowlist**: `HOMELAB.md`; each service's `compose.yml`/`docker-compose.yml` plus `reverse-proxy/Caddyfile` and `homelab-docs/server.py`; every `*.sh` in `/home/patryk/scripts`; the homelab-related systemd user and system unit files. Whole directories and wildcards over unknown files are never copied.
+  - **Excluded**: `compose/paperless/docker-compose.yml` is intentionally skipped because it hardcodes `POSTGRES_PASSWORD` in plaintext instead of in `.env`; all `.env` files; live service data (databases, volumes).
+  - **Secret scan gate**: before staging, every candidate file is scanned for keyword-plus-assignment patterns (`token`/`api_key`/`password`/`secret`/`PUSHOVER` followed by `:`/`=` and a literal, non-variable value), the Uptime Kuma `/api/push/` path literal, and long mixed-case alphanumeric strings (high-entropy heuristic). Any match aborts the whole run before anything is committed, printing only the offending file path and line number, never the matched value.
+  - **Idempotency**: `git add -A` plus a commit only when the tree actually changed; the collector's own source is excluded from its own scan since it contains the pattern definitions as literal text.
+
+## Infrastructure services
+
+| Service | Purpose | Type | Important path/command | Notes |
+|---|---|---|---|---|
+| Docker | Container runtime for homelab apps | systemd/system | `systemctl status docker`, `docker ps` | `docker.service` is active. |
+| Cudy WR3600 router | LAN gateway, DHCP, OpenVPN fallback access | external router | `http://192.168.10.1` | Router must stay reachable independently from miniPC services. DHCP DNS currently uses primary `192.168.10.12` (Fedora miniPC AdGuard Home) and secondary `192.168.10.13` (Mac mini AdGuard Home), and both should stay mirrored because clients may use either server. |
+| Cudy OpenVPN Server | Emergency home LAN access | external router VPN | Router panel `http://192.168.10.1` over VPN | Critical fallback for router management if DNS, miniPC, Tailscale, or AdGuard Home are unavailable. |
+| Tailscale | Private remote access to miniPC and services | systemd/system | `tailscale status`, `systemctl status tailscaled` | miniPC Tailscale IP is `100.118.164.107`. |
+| SSH | Remote shell access | system/system | `ss -tulpn`, port `22` | Listening on IPv4 and IPv6. |
+| Avahi / mDNS | Local `.local` hostname | systemd/system | `systemctl status avahi-daemon`, `avahi-resolve -n fedora.local` | Avahi is active, advertising `fedora.local`. SSH target is `ssh patryk@fedora.local`. Configured to allow only `enp1s0` interface, use IPv4 only (IPv6 publishing disabled), and static hostname is set to `fedora`. |
+| Samba / SMB | Authenticated file access from iPhone Files, Samsung Fold, and Mac | systemd/system | `systemctl status smb`, `/etc/samba/smb.conf` | Bound only to `lo` and `enp1s0`. Guest access disabled. Final working shares expose existing folders under `/home/patryk`: `documents`, `backups`, and `downloads`. Administrative folders like `/home/patryk/docker` and `/home/patryk/scripts` are intentionally not exposed over SMB. The physical folder for `documents` remains `/home/patryk/Documents`. |
+| GNOME Remote Desktop / RDP | Remote desktop access | systemd/system | `systemctl status gnome-remote-desktop`, port `3389` | Listening on port `3389`. |
+| SMB NAS mount | Backup destination on Synology NAS | system/manual mount | `mountpoint /mnt/nas-minipc-backup`, `df -h /mnt/nas-minipc-backup` | Mounted from `//192.168.10.92/minipc-backup`. |
+| NAS Wake-on-LAN recovery | Can wake miniPC from LAN | NAS feature | miniPC MAC `68:1d:ef:4e:2e:a9` | Use after connecting through OpenVPN when miniPC is powered off but router and NAS are available. |
+| NAS mount alert | Verifies NAS backup mount health | systemd/timer + script | `/home/patryk/scripts/nas-mount-check.sh`, `systemctl status nas-mount-check.timer` | Runs every 3 minutes, checks `/mnt/nas-minipc-backup`, writes/reads/deletes a test file, reports to Uptime Kuma Push monitor set to 300 seconds / 5 minutes, and Uptime Kuma sends Pushover notification. This avoids false warning/flapping caused by exact 5-minute scheduling drift. |
+| Homelab backup script | Creates local archive and copies it to NAS | manual/script | `/home/patryk/scripts/homelab-backup.sh` | Requires the expected `//192.168.10.92/minipc-backup` CIFS mount before archive creation or NAS copy; supports safe `--preflight`; sends Uptime Kuma push after success without printing the push URL. |
+| Homelab restore verification script | Safely validates backup archives without restoring live files | manual/script | `/home/patryk/scripts/homelab-restore-verify.sh` | Checks tar integrity, extracts only to `/tmp`, verifies important recovery paths, and prints a PASS/FAIL summary. |
+| Homelab backup systemd timer | Runs the homelab backup daily | systemd/timer | `systemctl status homelab-backup.timer` | Enabled. Next run is scheduled by systemd with randomized delay. |
+| Homelab repo | Local Git repository versioning homelab docs, Compose files, scripts, and systemd units | Git repository | `/home/patryk/homelab-repo` | One-way, read-only snapshot populated by an explicit allowlist collector; not a deployment source. The snapshot is pushed to Forgejo over SSH via a dedicated deploy key. See Systemd Workflows / Timers and Backup coverage. |
+| Homelab repo collector | Populates `/home/patryk/homelab-repo` from an explicit allowlist | systemd/user timer + script | `/home/patryk/scripts/collect-homelab-repo.sh`, `systemctl --user status homelab-repo-collect.timer` | Runs daily at 09:00. Includes a secret-scan gate that aborts the run before committing if any staged file matches a secret-like pattern. |
+| Daily homelab report | Sends compact miniPC status report through Pushover | systemd/timer + script | `/home/patryk/scripts/daily-homelab-report.sh`, `systemctl status daily-homelab-report.timer` | Runs daily at 09:30. Uses the shared helper directly and does not use Uptime Kuma as a monitor. Includes Docker image update information by reading DIUN data and comparing it with local image digests, and includes Fedora/system update information from separate `dnf`/`dnf5` checks. |
+| DIUN | Docker image update checks | Docker Compose | `/home/patryk/docker/diun` | Installed and active. Runs daily at 04:00. Used as the Docker image update source for the Daily homelab report. Does not auto-update containers. Uses Docker socket read-only. Avoid adding duplicate standalone Docker update notifications unless explicitly requested. |
+| Anti-sleep host configuration | Prevents the miniPC from sleeping/suspending | systemd/GDM config + timer | `systemctl status sleep.target suspend.target hibernate.target hybrid-sleep.target`, `/home/patryk/scripts/anti-sleep-check.sh`, `systemctl status anti-sleep-check.timer` | Sleep is disabled through masked systemd sleep targets, logind and sleep config drop-ins, and GDM power settings. `anti-sleep-check.timer` verifies this every 15 minutes and sends Pushover notification only for new suspicious suspend attempts after baseline or config drift. |
+| Cloudflare Tunnel (`cloudflared`) | Publishes `homelab-docs-public` at `https://docs.patrykw.uk/` | Docker Compose | `/home/patryk/docker/cloudflared/compose.yml`, `docker logs cloudflared` | Outbound-only tunnel; no port forwarding, no firewall change, no published ports. `.env` holds the tunnel token (from the Zero Trust dashboard's tunnel connector setup, not a general Cloudflare API token), read via Compose `env_file`, never inlined or logged. Publishes only `homelab-docs-public`; unrelated to the existing Caddy reverse-proxy or the separate DNS-01 Caddy instance used for `kuma.patrykw.uk`. |
+| Forgejo | Self-hosted Git server backing `homelab-repo`'s one-way push | Docker Compose | `/home/patryk/docker/forgejo/compose.yml`, `http://192.168.10.12:3300`, SSH `2222` | Data at `/home/patryk/docker/forgejo/data` (SQLite database, repos, `app.ini`, and host SSH keys under a root-owned `ssh/` subdirectory). Deploy key used for the `homelab-repo` push: `/home/patryk/.ssh/forgejo-homelab-repo-deploy` (mode 600, private key never printed/logged). Reachable via both LAN and Tailscale by default, per the FedoraWorkstation zone's stock behavior; not further restricted. |
+| Codex CLI | Local coding/ops assistant used to maintain documentation and configs | manual/tool | `codex` | Do not store secrets in prompts, logs, or docs. |
+
+## Anti-sleep monitoring
+
+- miniPC is configured for 24/7 operation and should not suspend, sleep, hibernate, or hybrid-sleep automatically.
+- `sleep.target`, `suspend.target`, `hibernate.target`, and `hybrid-sleep.target` are masked.
+- Before Fedora/system updates, verify that `sleep.target`, `suspend.target`, `hibernate.target`, and `hybrid-sleep.target` are still masked.
+- After Fedora/system or kernel updates and after any reboot, verify the sleep/suspend/hibernate masks again. Do not assume they survived the update until checked.
+- GDM inactive sleep is disabled through GDM power settings.
+- logind config disables suspend-related actions:
+  - `/etc/systemd/logind.conf.d/99-disable-suspend.conf`
+  - expected values include `HandleSuspendKey=ignore`, `HandleHibernateKey=ignore`, `HandleLidSwitch=ignore`, `HandleLidSwitchExternalPower=ignore`, `IdleAction=ignore`, and `IdleActionSec=0`.
+- systemd sleep config disables suspend and hibernation:
+  - `/etc/systemd/sleep.conf.d/99-disable-all-sleep.conf`
+  - expected values include `AllowSuspend=no`, `AllowHibernation=no`, `AllowHybridSleep=no`, and `AllowSuspendThenHibernate=no`.
+- Monitoring script:
+  - `/home/patryk/scripts/anti-sleep-check.sh`
+- Baseline file:
+  - `/home/patryk/scripts/anti-sleep-check.baseline`
+- Last diagnostic log:
+  - `/home/patryk/scripts/anti-sleep-check.last.log`
+- systemd units:
+  - `/etc/systemd/system/anti-sleep-check.service`
+  - `/etc/systemd/system/anti-sleep-check.timer`
+- Timer interval:
+  - `OnBootSec=5min`
+  - `OnUnitActiveSec=15min`
+  - `AccuracySec=1min`
+  - `Persistent=true`
+- Alerting:
+  - Pushover alert is sent only for new suspicious suspend/sleep/hibernate entries after the baseline timestamp or for anti-sleep config drift.
+  - The script still logs suspicious entries from the last 72h for visibility, but does not alert on historical entries before baseline.
+
+## Notifications
+
+- Default homelab notifications use **Pushover**. Uptime Kuma uses Pushover.
+- Central generic helper: `/home/patryk/scripts/notify.sh`
+- Pushover specific helper: `/home/patryk/scripts/notify-pushover.sh`
+- Pushover secrets: `/home/patryk/scripts/pushover.env` and `/home/patryk/docker/n8n/.env` (for n8n). Secret values are strictly not documented here.
+- Pushover is the active/default notification provider for the homelab. changedetection.io uses Pushover through Apprise with `pover://...` configured manually in its UI. Do not document or expose the actual Pushover tokens or keys.
+- Used for script notifications that do not need Uptime Kuma monitoring, such as reboot-needed, update-available, and daily report notices.
+- Daily homelab report notifications use the title `MiniPC - Daily Report` (with ` - WARN` appended only when that report has warnings).
+- Example usage:
+
+```bash
+/home/patryk/scripts/notify.sh "MiniPC test" "Message"
+```
+
+- Reboot Needed notifier: `/home/patryk/scripts/reboot-needed-check.sh`
+- Uses the shared helper: `/home/patryk/scripts/notify.sh`
+- Runs daily at 09:00 through `reboot-needed-check.timer` when the systemd unit and timer are installed.
+- Sends notification only when Fedora likely needs a reboot, such as after a newer installed kernel differs from the running kernel or `/run/reboot-required` exists.
+- Does not use Uptime Kuma.
+- Does not install updates and does not reboot automatically.
+- Avoids repeated spam by storing the last notified state in `/home/patryk/scripts/reboot-needed-check.state`.
+- Update Available notifier: `/home/patryk/scripts/update-available-check.sh`
+- Uses the shared helper: `/home/patryk/scripts/notify.sh`
+- Runs daily at 09:15 through `update-available-check.timer` when the systemd unit and timer are installed.
+- Sends notification when Fedora package updates are available or when the update check fails.
+- Does not use Uptime Kuma.
+- Does not install updates and does not reboot automatically.
+- Avoids repeated spam by storing the last notified update-list or failure state in `/home/patryk/scripts/update-available-check.state`.
+- Boot notification: `/home/patryk/scripts/boot-notify.sh`
+- Uses the shared helper: `/home/patryk/scripts/notify.sh`
+- Sends notification every time the miniPC boots through `boot-notify.service` when the systemd service is installed and enabled.
+- Does not use Uptime Kuma.
+- Includes hostname, boot time, running kernel, LAN IP if available, and Tailscale IP if available.
+- Retries notification delivery because DNS/network may not be ready immediately after boot.
+- Daily Homelab Report: `/home/patryk/scripts/daily-homelab-report.sh`
+- Uses the shared helper: `/home/patryk/scripts/notify.sh`
+- Runs daily at 09:30 through `daily-homelab-report.timer` when the systemd unit and timer are installed.
+- Sends one compact report covering host status, Docker counts, backup status, NAS mount health, reboot-needed status, Fedora/system update summary (count, security/critical status, important packages), Docker image update summary from DIUN, and important timers.
+- Does not use Uptime Kuma as a monitor.
+- Does not install updates, reboot, restart containers, or run speedtests. Updates remain manual/planned maintenance only.
+
+## Docker compose folders
+
+Current expected Docker status: `17/17 running`.
+
+Known Compose files under `/home/patryk/docker`:
+
+- `/home/patryk/docker/adguardhome/compose.yml`
+- `/home/patryk/docker/freshrss/compose.yml`
+- `/home/patryk/docker/homarr/compose.yml`
+- `/home/patryk/docker/glances/compose.yml`
+- `/home/patryk/docker/diun/compose.yml`
+- `/home/patryk/docker/speedtest-tracker/compose.yml`
+- `/home/patryk/docker/homelab-docs/compose.yml`
+- `/home/patryk/docker/changedetection/compose.yml`
+- `/home/patryk/docker/netalertx/compose.yml`
+- `/home/patryk/docker/cyberchef/docker-compose.yml`
+- `/home/patryk/docker/n8n/docker-compose.yml`
+- `/home/patryk/docker/upsnap/compose.yml`
+- `/home/patryk/docker/reverse-proxy/compose.yml`
+- `/home/patryk/docker/paperless/docker-compose.yml`
+- `/home/patryk/docker/caddy/compose.yml`
+
+Known service folders under `/home/patryk/docker`:
+
+- `/home/patryk/docker/adguardhome`
+- `/home/patryk/docker/freshrss`
+- `/home/patryk/docker/homarr`
+  - `/home/patryk/docker/homarr/data` (SQLite database, Redis state, trusted certificates, uploaded/local media, board/app/item/widget/integration and authentication data)
+- `/home/patryk/docker/glances` (pinned Compose only; no persistent metrics cache)
+- `/home/patryk/docker/diun`
+- `/home/patryk/docker/speedtest-tracker`
+- `/home/patryk/docker/homelab-docs`
+- `/home/patryk/docker/changedetection`
+- `/home/patryk/docker/netalertx`
+  - `/home/patryk/docker/netalertx/data` (application config and SQLite database)
+- `/home/patryk/docker/cyberchef`
+- `/home/patryk/docker/n8n`
+- `/home/patryk/docker/upsnap`
+- `/home/patryk/docker/reverse-proxy`
+- `/home/patryk/docker/paperless`
+- `/home/patryk/docker/caddy` (`compose.yml`, `Caddyfile`, `Dockerfile`, `.env`; wildcard `*.patrykw.uk` DNS-01 TLS instance, 12 internal-only site blocks)
+
+## Backup coverage
+
+The current backup script is:
+
+```bash
+/home/patryk/scripts/homelab-backup.sh
+```
+
+The systemd timer is:
+
+```bash
+homelab-backup.timer
+```
+
+Before creating an archive, the backup script triggers the existing automount if idle and verifies that `/mnt/nas-minipc-backup` is the expected `//192.168.10.92/minipc-backup` `cifs` filesystem. Use `/home/patryk/scripts/homelab-backup.sh --preflight` for this non-backup check.
+
+Current backup includes:
+
+- Docker Compose files under `/home/patryk/docker` with names `compose.yml`, `docker-compose.yml`, `.env`, `Caddyfile`, and `Dockerfile`
+- Docker inventory: containers, images, and volume list
+- AdGuard Home Docker volumes:
+  - `adguardhome_adguard_conf`
+  - `adguardhome_adguard_work`
+- FreshRSS Docker volumes:
+  - `freshrss_freshrss_data`
+  - `freshrss_freshrss_extensions`
+- Uptime Kuma Docker volume if one of the legacy volume names exists
+- Homarr recovery data:
+  - `/home/patryk/docker/homarr/compose.yml`
+  - `/home/patryk/docker/homarr/.env` (stored without printing secret values)
+  - `/home/patryk/docker/homarr/data` including SQLite, Redis state, trusted certificates, uploaded/local assets, board/app/item/widget/integration data, and authentication data
+- Glances:
+  - `/home/patryk/docker/glances/compose.yml` is explicitly archived; Glances has no recovery-critical runtime metrics cache.
+- Uptime Kuma bind-mounted data:
+  - `/home/patryk/homelab/uptime-kuma/data`
+
+- DIUN config and database:
+  - `/home/patryk/docker/diun/diun.yml`
+  - `/home/patryk/docker/diun/data`
+  - archived under `bind_mounts/diun_config/`
+  - archived under `bind_mounts/diun_data/`
+- Speedtest Tracker config and environment:
+  - `/home/patryk/docker/speedtest-tracker/config`
+  - `/home/patryk/docker/speedtest-tracker/.env`
+  - archived under `bind_mounts/speedtest_tracker_config/`
+  - archived under `bind_mounts/speedtest_tracker_env/`
+- Homelab Docs:
+  - `/home/patryk/docker/homelab-docs/compose.yml`
+  - `/home/patryk/docker/homelab-docs/server.py`
+  - mounted documentation source `/home/patryk/docker/HOMELAB.md`
+  - archived under `compose/homelab-docs/`, `bind_mounts/homelab_docs/`, and `docs/`
+- changedetection.io:
+  - `/home/patryk/docker/changedetection/compose.yml`
+  - `/home/patryk/docker/changedetection/datastore`
+  - notifications are configured manually in the changedetection.io UI to use Pushover through Apprise `pover://...`
+  - archived under `compose/changedetection/` and `bind_mounts/changedetection_datastore/`
+- NetAlertX:
+  - `/home/patryk/docker/netalertx/compose.yml`
+  - `/home/patryk/docker/netalertx/data` including application configuration and SQLite database state
+  - archived under `compose/netalertx/` and `bind_mounts/netalertx_data/data.tar.gz`
+- Reverse proxy:
+  - `/home/patryk/docker/reverse-proxy/compose.yml`
+  - `/home/patryk/docker/reverse-proxy/Caddyfile`
+  - archived under `compose/reverse-proxy/`
+- Caddy (DNS-01 TLS):
+  - `/home/patryk/docker/caddy/compose.yml`
+  - `/home/patryk/docker/caddy/Caddyfile`
+  - `/home/patryk/docker/caddy/Dockerfile`
+  - `/home/patryk/docker/caddy/.env` (stored without printing secret values; holds `CLOUDFLARE_API_TOKEN`)
+  - archived under `compose/caddy/`
+- n8n:
+  - `/home/patryk/docker/n8n/docker-compose.yml`
+  - `/home/patryk/docker/n8n/.env`
+  - `/home/patryk/docker/n8n/data`
+  - archived under `compose/n8n/` and `bind_mounts/n8n_data/`
+- UpSnap:
+  - `/home/patryk/docker/upsnap/compose.yml`
+  - `/home/patryk/docker/upsnap/data` (PocketBase `pb_data` bind mount)
+  - archived under `compose/upsnap/` and `bind_mounts/upsnap_data/`
+- Paperless-ngx:
+  - `/home/patryk/docker/paperless/docker-compose.yml`
+  - `/home/patryk/docker/paperless/.env`
+  - PostgreSQL database (dumped via `pg_dump` from `paperless-db` to `db_dump.sql` before archiving)
+  - `/home/patryk/Documents/paperless/media`
+  - `paperless_data` Docker volume
+  - archived under `compose/paperless/`, `bind_mounts/paperless/` (including `db_dump.sql` and `media/`), and `volumes/paperless/`
+  - `consume` and `export` folders are not backed up
+- Backup script:
+  - `/home/patryk/scripts/homelab-backup.sh`
+- Restore verification script:
+  - `/home/patryk/scripts/homelab-restore-verify.sh`
+- Canonical documentation mirror synchronization:
+  - `/home/patryk/scripts/sync-homelab-md-mirror.sh`
+  - `/home/patryk/.config/systemd/user/homelab-md-mirror-sync.service`
+  - `/home/patryk/.config/systemd/user/homelab-md-mirror-sync.path`
+  - `/home/patryk/.config/systemd/user/homelab-md-mirror-sync.timer`
+- NAS mount alert script and push URL file:
+  - `/home/patryk/scripts/nas-mount-check.sh`
+  - `/home/patryk/scripts/uptime-kuma-nas-mount-push.url`
+- Homelab repo (including its `.git` directory, which holds the full commit history):
+  - `/home/patryk/homelab-repo` (archived in full, `.git` included, under `bind_mounts/homelab_repo/`)
+  - `/home/patryk/scripts/collect-homelab-repo.sh`
+  - `/home/patryk/.config/systemd/user/homelab-repo-collect.service`
+  - `/home/patryk/.config/systemd/user/homelab-repo-collect.timer`
+- Forgejo (the Git server application itself, separate from the `homelab-repo` snapshot it hosts):
+  - `/home/patryk/docker/forgejo/compose.yml` (archived under `bind_mounts/forgejo/`)
+  - `/home/patryk/docker/forgejo/data` — SQLite database, repos, `app.ini`, and root-owned host SSH keys — archived via `docker run` (root inside the container can read the root-owned `ssh/` subdirectory) as `bind_mounts/forgejo_data/data.tar.gz`
+  - `/home/patryk/.ssh/forgejo-homelab-repo-deploy` and its `.pub`, the deploy key used for `homelab-repo`'s push, archived under `ssh_keys/` with `cp -a` (mode 600 preserved, contents never printed)
+
+- Daily Homelab Report:
+  - `/home/patryk/scripts/daily-homelab-report.sh`
+  - `/etc/systemd/system/daily-homelab-report.service` if installed
+  - `/etc/systemd/system/daily-homelab-report.timer` if installed
+- Reboot Needed notifier:
+  - `/home/patryk/scripts/reboot-needed-check.sh`
+  - `/home/patryk/scripts/reboot-needed-check.state` if it exists
+  - `/etc/systemd/system/reboot-needed-check.service` if installed
+  - `/etc/systemd/system/reboot-needed-check.timer` if installed
+- Update Available notifier:
+  - `/home/patryk/scripts/update-available-check.sh`
+  - `/home/patryk/scripts/update-available-check.state` if it exists
+  - `/etc/systemd/system/update-available-check.service` if installed
+  - `/etc/systemd/system/update-available-check.timer` if installed
+- Boot notification:
+  - `/home/patryk/scripts/boot-notify.sh`
+  - `/etc/systemd/system/boot-notify.service` if installed
+- Anti-sleep monitor:
+  - `/home/patryk/scripts/anti-sleep-check.sh`
+  - `/home/patryk/scripts/anti-sleep-check.baseline`
+  - `/home/patryk/scripts/anti-sleep-check.last.log`
+  - `/etc/systemd/system/anti-sleep-check.service`
+  - `/etc/systemd/system/anti-sleep-check.timer`
+- SMART health checker:
+  - `/home/patryk/scripts/smart-health-check.sh`
+  - `/etc/systemd/system/smart-health-check.service`
+  - `/etc/systemd/system/smart-health-check.timer`
+  - The live `/home/patryk/scripts/smart-health-check-state/` anti-spam baseline is intentionally excluded: it is transient operational state, not required for reconstruction, and restoring stale alert suppression could hide a new event.
+- Paperless automation:
+  - `/home/patryk/scripts/paperless-consistency-check.sh`
+  - `/home/patryk/scripts/paperless-consistency-check-notify.sh`
+  - `/home/patryk/scripts/paperless-autofill-document-type.sh`
+  - `/home/patryk/scripts/paperless-sync-title-to-filename.sh`
+  - `/home/patryk/.config/systemd/user/paperless-consistency-check.service`
+  - `/home/patryk/.config/systemd/user/paperless-consistency-check.timer`
+  - `/home/patryk/.config/systemd/user/paperless-title-sync.service`
+  - `/home/patryk/.config/systemd/user/paperless-title-sync.timer`
+- systemd units:
+  - `/etc/systemd/system/homelab-backup.service`
+  - `/etc/systemd/system/homelab-backup.timer`
+  - `/etc/systemd/system/kuma-tailscale-push.service`
+  - `/etc/systemd/system/kuma-tailscale-push.timer`
+  - `/etc/systemd/system/nas-mount-check.service`
+  - `/etc/systemd/system/nas-mount-check.timer`
+  - `/etc/systemd/system/daily-homelab-report.service`
+  - `/etc/systemd/system/daily-homelab-report.timer`
+  - `/etc/systemd/system/anti-sleep-check.service`
+  - `/etc/systemd/system/anti-sleep-check.timer`
+- anti-sleep systemd config drop-ins:
+  - `/etc/systemd/logind.conf.d/99-disable-suspend.conf`
+  - `/etc/systemd/sleep.conf.d/99-disable-all-sleep.conf`
+  - archived under `systemd_config/logind.conf.d/`
+  - archived under `systemd_config/sleep.conf.d/`
+- Samba config:
+  - `/etc/samba/smb.conf`
+  - archived under `system_config/samba/`
+- NAS copy to `/mnt/nas-minipc-backup`
+- Local mixed retention: keeps the newest 5 backup archives, plus one archive closest to 7, 14, 21, 30, and 60 days ago
+- NAS mixed retention: keeps the newest 5 backup archives, plus one archive closest to 7, 14, 21, 30, and 60 days ago
+- Uptime Kuma push notification after successful backup
+
+Intentionally not backed up:
+
+
+- temporary folders created during backup
+- old backup archives beyond retention
+- backup archives outside the mixed retention policy
+- Fedora Web Console / Cockpit: `https://192.168.10.12:9090/`
+- Fedora Web Console / Cockpit hostname/LAN alternative: `https://fedora:9090/`
+- secret file contents printed to terminal
+- Uptime Kuma push URL contents
+
+## Restore verification
+
+The restore verification script is:
+
+```bash
+/home/patryk/scripts/homelab-restore-verify.sh
+```
+
+Purpose:
+
+- Safely validates the newest backup by running a tar listing, extracting the archive into `/tmp`, and checking that important recovery files are present.
+- Never restores over live paths and does not write into `/home/patryk/docker`, `/home/patryk/scripts`, `/etc`, Docker volumes, or any other live restore location.
+- Uses invocation-unique `mktemp` paths. Successful verification removes its extraction directory and tar listing automatically; failed verification preserves them for diagnosis. Use `--keep-temp` to retain them after a successful run.
+
+Usage:
+
+```bash
+/home/patryk/scripts/homelab-restore-verify.sh
+/home/patryk/scripts/homelab-restore-verify.sh /path/to/archive.tar.gz
+/home/patryk/scripts/homelab-restore-verify.sh --keep-temp [archive.tar.gz]
+```
+
+Output includes:
+
+- PASS/FAIL summary
+- archive verified
+- restore test directory
+- tar listing file
+- required recovery item counts and missing items
+
+Recommended use:
+
+- Run manually after major service changes.
+- Run manually after changing backup coverage.
+
+## Samba / SMB file access
+
+Samba is enabled for authenticated file access from iPhone Files, Samsung Fold, and Mac.
+
+Current working SMB URLs:
+
+```text
+smb://192.168.10.12
+smb://192.168.10.12/backups
+smb://192.168.10.12/documents
+smb://192.168.10.12/downloads
+```
+
+The server-root URL `smb://192.168.10.12` shows the share list. The direct share URLs map to existing folders under `/home/patryk`; `downloads` maps to `/home/patryk/downloads`.
+
+Security and access:
+
+- Authenticated user only: `patryk`
+- Guest access: disabled
+- SMB binds only to `lo` and LAN interface `enp1s0`
+- Preferred access is through the LAN IP `192.168.10.12`
+- SMB password is managed with `smbpasswd` and is not stored in this document
+- Apple SMB compatibility options (`vfs objects = catia fruit streams_xattr` and related `fruit` metadata/resource fork settings) are enabled on all Samba shares whose paths are under `/home/patryk`. This allows the native iOS/macOS Apple Files app to see shares and folders as fully writable by properly handling AppleDouble metadata. This is applied on a per-share basis, not globally, and is not a permission broadening like `chmod 777`.
+- Do not expose SMB publicly
+- The `SMB1 disabled -- no workgroup available` message from `smbclient` is harmless
+- Server-root browsing required explicit protocol settings in `/etc/samba/smb.conf`:
+  - `server min protocol = SMB2_10`
+  - `server max protocol = SMB3`
+- `testparm` may display the minimum protocol as `SMB2`; this is acceptable normalization.
+- Android SMB clients can browse `smb://192.168.10.12` and show all shares correctly.
+- Apple iOS/macOS Files/Finder compatibility remains imperfect even though Android and `smbclient` work. The following Apple compatibility settings do not fully resolve it:
+  - `vfs objects = streams_xattr`
+  - `vfs objects = fruit streams_xattr`
+- For iOS/macOS, prefer direct share URLs from clients that support them correctly, or consider a third-party SMB-capable file manager later instead of changing Samba further.
+
+Notes:
+
+- SELinux is currently disabled at runtime on the host; `/etc/selinux/config` remains set to `SELINUX=enforcing`, but no SELinux policy is loaded in the running system. `samba_enable_home_dirs` is retained for home-directory sharing support if SELinux is later active.
+- `samba_export_all_rw` is intentionally not enabled.
+- Directly sharing the root of `/home/patryk` as `patryk-home` does not work and returns `NT_STATUS_ACCESS_DENIED listing *`, even though authentication succeeds and existing subfolder shares work.
+- The current configuration uses separate shares for existing folders over localhost and LAN IP.
+- Future rule: new folders are not automatically added to SMB. To expose another folder later, add a new share to `/etc/samba/smb.conf`; with SELinux Enforcing, non-home paths may also need an SELinux file context such as `samba_share_t` via `semanage fcontext` and `restorecon`.
+
+## Container update policy / DIUN
+
+DIUN (Docker Image Update Notifier) is configured to monitor running containers and report findings via the Daily Homelab Report; it does not send separate notifications.
+
+**Important DIUN rules:**
+- **Role:** Detection only. It detects new Docker image versions and findings are included in the daily report.
+- **Daily report relationship:** The Daily homelab report reads DIUN image data for Docker image update reporting. Fedora/system update reporting in the Daily homelab report is separate and comes from `dnf`/`dnf5` checks, not from DIUN.
+- **Auto-update:** None. DIUN does not auto-update containers.
+- **Notifications:** Avoid duplicate standalone Docker update notifications unless explicitly requested.
+- **Cadence:** Manual, planned maintenance windows. No spontaneous updates.
+
+**Pre-update checklist:**
+1. Read the daily report container update summary.
+2. Identify the affected service.
+3. Check release notes or changelog (especially for major version bumps).
+4. Run homelab backup: `/home/patryk/scripts/homelab-backup.sh`
+5. Verify backup completed successfully.
+
+**Update command pattern (documentation only, do not run blindly):**
+```bash
+cd /home/patryk/docker/service-name
+docker compose pull
+docker compose up -d
+```
+
+**Post-update checklist:**
+1. Check container status: `docker ps`
+2. Check container logs: `docker logs --tail=80 container-name`
+3. Test the service URL and UI.
+4. Update `HOMELAB.md` if the version, config, behavior, backup coverage, or service URLs/ports changed.
+5. Run restore verify: `/home/patryk/scripts/homelab-restore-verify.sh`
+
+**Rollback procedure:**
+- Stop if the update fails.
+- Check logs.
+- Revert the `docker-compose.yml` to the previous specific image tag (e.g., `image: my-service:v1.2.3` instead of `:latest`).
+- Run `docker compose up -d` to rollback.
+- Do not blindly run volume or image pruning.
+
+**Safety rules:**
+- NO `docker system prune` or `docker volume prune` as part of updates.
+- NO mass updates of the whole stack at once. Update only the selected service.
+- NO Fedora/dnf system updates during container maintenance.
+- High-risk services (FreshRSS, Paperless, reverse-proxy, Samba configs, backup scripts) require careful checking.
+- Low-risk services (Homarr, changedetection) can be updated with simpler checks if there is no major data impact.
+- Always backup before and restore verify after.
+
+## Known issues / watch items
+
+- changedetection.io has no Playwright/browser helper yet, so JavaScript-heavy pages may need that later.
+- Apple iOS/macOS SMB compatibility is still imperfect; Android SMB browsing works.
+- GNOME Remote Desktop/RDP is configured, but previous headless/HDMI issues should be treated as a known risk if they return.
+- Router DHCP DNS now uses primary `192.168.10.12` and secondary `192.168.10.13`; because clients may use both, the two AdGuard Home instances should stay mirrored. Emergency DNS recovery is still manual through OpenVPN to the Cudy router.
+- `https://docs.patrykw.uk/<token>` (served by `homelab-docs-public` via the `cloudflared` tunnel) is intentionally reachable from the public internet. Mitigation is obscurity via an unguessable 32-byte random path, not authentication — real auth would block AI chat tools from fetching it directly, which is the entire purpose of the endpoint. What it exposes: the same network topology, IPs, ports, service names, and backup schedules already in this document and the Mac mini's equivalent document — no passwords, tokens, API keys, or other secrets (consistent with this file's existing policy). Why: so the current content of both `HOMELAB.md` and the Mac mini's `HOMELAB-MACMINI.md` can be pasted as one link into any AI chat tool, which fetches it live on every request (not a cached snapshot — see the separate one-way `homelab-repo`/Forgejo Git snapshot work, which is unrelated and serves a different purpose). Every path other than the exact token returns an identical `404` so a guess can never learn it was "close." This endpoint is intentionally not linked from Homarr since it isn't meant for routine LAN browsing.
+
+## Useful commands
+
+Show this file:
+
+```bash
+less ~/docker/HOMELAB.md
+```
+
+Run backup manually:
+
+```bash
+/home/patryk/scripts/homelab-backup.sh
+```
+
+Run restore verification manually:
+
+```bash
+/home/patryk/scripts/homelab-restore-verify.sh
+```
+
+Check backup timer:
+
+```bash
+systemctl status homelab-backup.timer --no-pager -l
+systemctl status homelab-backup.service --no-pager -l
+```
+
+Check latest local backups:
+
+```bash
+ls -lh /home/patryk/backups/homelab | tail
+```
+
+Check latest NAS backups:
+
+```bash
+ls -lh /mnt/nas-minipc-backup | tail
+```
+
+Check Docker containers:
+
+```bash
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
+```
+
+Check Docker stats:
+
+```bash
+docker stats --no-stream
+```
+
+Check listening ports:
+
+```bash
+ss -tulpn | grep -E ':(22|53|80|443|3001|3002|3004|5000|5678|7575|8010|8082|8083|8181|3389|9090)\b' || true
+```
+
+Check NAS mount:
+
+```bash
+mountpoint /mnt/nas-minipc-backup
+df -h /mnt/nas-minipc-backup
+```
+
+Check Samba:
+
+```bash
+testparm -s /etc/samba/smb.conf
+systemctl status smb --no-pager
+ss -lntup | grep -E ':(139|445)' || true
+getsebool samba_enable_home_dirs
+```
+
+Check RAM:
+
+```bash
+free -h
+cat /proc/meminfo | grep -E 'MemTotal|MemFree|MemAvailable|Buffers|Cached|SwapTotal|SwapFree|SReclaimable|Shmem'
+```
+
+Check logs for a Docker container:
+
+```bash
+docker logs --tail=80 CONTAINER_NAME
+```
+
+Check Mac mini Glances CPU/RAM from the Fedora miniPC:
+
+```bash
+curl -fsS http://192.168.10.13:61208/api/4/cpu
+curl -fsS http://192.168.10.13:61208/api/4/mem
+```
+
+## Paperless Workflow
+
+Paperless-ngx is configured for a simplified document archiving workflow for CMR documents, UK customs/export documents, and fuel/transport/parking invoices.
+
+- **Import path (SMB):** `//192.168.10.12/documents/paperless/consume`
+- **Document Types:** `CMR`, `Dokument celny`, `Faktura`
+- **Document Type matching:** Document Types do not classify by OCR directly. Storage Path matchers identify the archive path, and the consistency automation fills a missing Document Type from the assigned Storage Path.
+- **Filename prefix classification:** Incoming files can be deliberately named with a prefix as the strongest classification signal. Matching is case-insensitive, is evaluated against the original consumed filename stem, and accepts a space, underscore, hyphen, or end-of-name after the prefix:
+  - `CMR*` -> Document Type `CMR`, Storage Path `CMR`; examples: `CMR.pdf`, `CMR 1.pdf`, `CMR_Amazon.pdf`
+  - `UK*` -> Document Type `Dokument celny`, Storage Path `CMR`; examples: `UK.pdf`, `UK customs.pdf`, `UK_01.pdf`
+  - `FAKTURA*` -> Document Type `Faktura`, Storage Path `FAKTURY`; examples: `FAKTURA.pdf`, `FAKTURA parking.pdf`, `FAKTURA_Deutschland.pdf`
+  - Non-matches include names like `CMRsomething.pdf`, `UKRAINA.pdf`, and `FAKTURAX.pdf`.
+  - The prefix is only a classification instruction. The normal title/archive synchronization later replaces the incoming filename with the documented final `DD-MM-YYYY - 000000x` naming convention.
+  - If an explicit prefix conflicts with existing non-empty metadata, automation reports the conflict and does not overwrite the existing Document Type or Storage Path.
+- **Tags:** `paliwo`, `transport`, `rozliczenie`
+- **Correspondents:** Correspondents are intentionally not used.
+- **Document Date:** Document date should be set as the Paperless created date.
+- **Archive Filename & UI Title:** Paperless archive filenames are based on the Created date plus a safe unique suffix (the 7-digit Document ID `{{ doc_pk }}`). The Paperless UI title is automatically synchronized to match the archive filename (without `.pdf`), e.g., `03-07-2026 - 0000004`. UK customs documents additionally use ` - UK`.
+  - **Sync Script:** The UI Title is automatically synchronized twice daily (06:30 and 18:30) via a systemd user timer (`paperless-title-sync.timer`) which triggers `/home/patryk/scripts/paperless-sync-title-to-filename.sh`. This ensures the UI title securely matches the physical file without manually renaming.
+  - **Manual Trigger:** If you need to force a sync immediately, run `systemctl --user start paperless-title-sync.service`.
+  - **Check Schedule:** Check the timer status using `systemctl --user list-timers paperless-title-sync.timer`.
+- **Storage Paths Strategy:** Paperless uses storage paths with numeric year-month folders for reliability instead of Polish month names:
+  1. **CMR**
+     - Path: `CMR/{{ created_year }}-{{ created_month }}/{{ title }}`. The title synchronizer supplies `DD-MM-YYYY - 000000x` for normal CMR and appends ` - UK` for Document Type `Dokument celny`.
+     - Document Type: `CMR` or `Dokument celny`
+     - Matching pattern: `handover goods Carrier reservation Frachtfahrer "Number of packages"` (all terms/phrase, case-insensitive)
+     - Example: `CMR/2026-07/03-07-2026 - 0000123.pdf`
+  2. **UK customs/export documents**
+     - Storage Path: `CMR` (the same physical `CMR/YYYY-MM/` folder as normal CMR documents)
+     - Document Type: `Dokument celny`
+     - Matching pattern: `MRN Exportateur Destinataire "BUREAU DE DEPART" "Pays de destination"` (all terms/phrases, case-insensitive) in the bounded autofill OCR fallback.
+     - The Document Type adds the ` - UK` title and archive filename suffix: `CMR/2026-07/10-07-2026 - 0000124 - UK.pdf`.
+  3. **FAKTURY**
+     - Path: `FAKTURY/{{ created_year }}-{{ created_month }}/{{ created_day }}-{{ created_month }}-{{ created_year }} - {{ doc_pk }}`
+     - Document Type: `Faktura`
+     - Matching pattern: regex, case-insensitive: `(?s)\b(Faktura|paliwo|invoice|Rechnung)\b|\b(mastercard\s+debit|cardholder\s+copy)\b.{0,1000}\bovernight\s+parking\b.{0,500}\bVAT\b|\bovernight\s+parking\b.{0,500}\bVAT\b.{0,1000}\b(mastercard\s+debit|cardholder\s+copy)\b`
+     - Parking receipts require multiple signals: parking plus card/payment wording plus VAT. Do not classify parking documents from a merchant name, address, card number, transaction ID, or a generic amount/date alone.
+     - Example: `FAKTURY/2026-07/03-07-2026 - 0000125.pdf`
+- **Autofill fallback:** Classification order is explicit original-filename prefix first, then the bounded customs OCR condition or existing safe Storage Path/OCR matching, then Storage Path-to-Document Type autofill, then unresolved documents stay visible to the consistency checker. OCR classification remains a fallback for files without explicit prefixes. Customs documents must not be assigned Document Type `CMR`.
+- **Consistency rules:** `CMR` type and `Dokument celny` type both use Storage Path `CMR`; `Faktura` type uses Storage Path `FAKTURY`. The checker also validates original-filename prefix intent when present, flags customs-like content typed as `CMR`, CMR-like content typed as customs, and invoice-like content assigned outside `Faktura`/`FAKTURY`. The ` - UK` title/archive suffix is required only for Document Type `Dokument celny` and is rejected for normal `CMR`.
+- **Manual assignment/correction:** If Paperless fails to auto-detect the type, storage path, or date correctly upon import, correct the Document Type, Storage Path, and Created date manually in the UI. Unrecognized documents should remain visible as consistency-check issues until they are manually classified or intentionally handled.
+- **Note:** Paperless may convert uploaded photos/images into archived PDFs.
+- **SMB Usage & Permissions:** Paperless `consume` is the supported upload/drop folder. Paperless `media` directories (`archive`, `originals`, `thumbnails`) are normalized to `patryk:patryk` with setgid `2775` directories and `0664` files for SMB browse compatibility. They may be browsed over SMB, but should not be manually edited, moved, or deleted.
+
+## Maintenance rule
+
+HOMELAB.md is the source of truth for the miniPC homelab. Old chats are context only.
+
+This file intentionally contains only current-state information. Update it only when the current state changes, such as a new service, changed URL or port, changed path, changed backup coverage, or changed operating policy. Do not append dated narratives merely to record that maintenance or verification occurred.
+
+Detailed change history belongs in Git commit messages. The `homelab-repo` collector automatically snapshots the approved homelab files and pushes the repository to Forgejo.
+
+When the current state changes, keep this file updated with:
+
+- service name
+- URL/port
+- Docker folder or systemd unit
+- backup status
+- Uptime Kuma monitoring status if relevant
+- notes about data/volumes/config
+
+## Canonical documentation mirror synchronization
+
+- Purpose: maintain an SMB-accessible copy of the canonical homelab documentation so it can be read or transferred through the existing SMB share.
+- Canonical source: `/home/patryk/docker/HOMELAB.md`.
+- SMB-readable mirror destination: `/home/patryk/Documents/homelab/HOMELAB.md`.
+- Synchronization is strictly one-way from the canonical source to the SMB-readable mirror. The mirror must never be treated as the source of truth, and reverse synchronization from the SMB copy is not allowed.
+- Script: `/home/patryk/scripts/sync-homelab-md-mirror.sh`. It writes the destination in place and copies only when the files differ.
+- Event-driven synchronization is provided by `homelab-md-mirror-sync.path`; fallback synchronization is provided by `homelab-md-mirror-sync.timer` every 15 minutes.
+- Systemd user units:
+  - `/home/patryk/.config/systemd/user/homelab-md-mirror-sync.service`
+  - `/home/patryk/.config/systemd/user/homelab-md-mirror-sync.path`
+  - `/home/patryk/.config/systemd/user/homelab-md-mirror-sync.timer`
+- The mechanism contains no credentials or secrets.
+
+Useful checks:
+
+```bash
+systemctl --user status homelab-md-mirror-sync.path --no-pager
+systemctl --user status homelab-md-mirror-sync.timer --no-pager
+systemctl --user status homelab-md-mirror-sync.service --no-pager
+systemctl --user list-timers --all --no-pager | grep -F homelab-md-mirror-sync
+cmp -s /home/patryk/docker/HOMELAB.md /home/patryk/Documents/homelab/HOMELAB.md
+```
+
+Manual one-shot synchronization only, not normal routine operation:
+
+```bash
+systemctl --user start homelab-md-mirror-sync.service
+```
+
+## Desktop session cleanup
+
+- GNOME Software autostart is disabled only for user `patryk` through user override file `/home/patryk/.config/autostart/org.gnome.Software.desktop` to reduce background RAM usage in the GNOME session.
+- GNOME Software remains installed and can still be launched manually when needed with `gnome-software &`.
+- Re-enable autostart by deleting `/home/patryk/.config/autostart/org.gnome.Software.desktop`.
+
+After major service, backup, storage, network, or alerting changes, run the homelab backup and restore verification when appropriate.
+
+## Changelog
+
+Detailed change history is tracked in this host's Git repository (see the Homelab repo entries above), pushed to Forgejo. This file intentionally contains only current-state information.
+
+## Planned services / ideas
+
+### Current direction
+
+- Homarr is the active miniPC landing page. The approved board is the single source for dashboard layout changes.
+- CPU/RAM monitoring is completed through the active Glances integration; do not alter the approved widget configuration as part of routine dashboard maintenance.
+
+### Planned later
+
+- AI and the Discord bot are hosted on the Mac mini and are no longer planned Fedora miniPC services.
+- MeTube is hosted on the Mac mini, not Fedora. Do not restore it on the miniPC. Homarr links to the Mac mini instance at `http://192.168.10.13:8091`.
+- Taildrop / Tailscale file access refinements: only if needed later.
+- Test restore from backup: still worth doing later as a dedicated maintenance task.
+
+### Rejected / not planned
+
+- CasaOS: not planned. The current Fedora + Docker Compose + Homarr + `HOMELAB.md` setup is intentional, and CasaOS would add an extra management layer that could conflict with the controlled setup.
+- Dozzle / Dockge: not planned right now. Terminal and AI-assisted diagnostics are sufficient for now, so a separate web log / compose management layer is optional and not worth adding yet.
+- Duplicate n8n Paperless watchdog: not planned right now because Paperless consistency checking already exists as a systemd timer.
+- Optional Paperless consume stuck-file checker: not planned right now.
+
+## Later Maintenance
+
+1. Fedora/security/system updates
+2. Docker/container updates such as Speedtest Tracker if still reported by DIUN / Daily Homelab Report
+
+### Fedora update caution
+
+- Before Fedora/system updates: verify backup status, restore verification readiness, SSH access, Fedora Web Console / Cockpit access, AdGuard/DNS health, and sleep-target masks.
+- During planned Fedora/system maintenance, temporary router alternate DNS such as `1.1.1.1` is allowed if needed to preserve client internet access while the miniPC or AdGuard Home is down.
+- After Fedora/system updates and after any reboot: verify AdGuard/DNS, Docker service health, SSH access, and sleep/suspend/hibernate masks again.
+- Do not assume anti-sleep protection survived a kernel or system update until the masks and related settings are checked again.
+
+Already implemented and active: changedetection.io, Paperless-ngx, Pushover backup/homelab alerts, Daily homelab report, Reboot-needed notifier, Speedtest Tracker, Homelab Docs, DIUN, Anti-sleep monitoring, and NAS mount alert.
