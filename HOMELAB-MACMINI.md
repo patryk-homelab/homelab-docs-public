@@ -633,6 +633,38 @@ git -C /Users/patrykmac/homelab-repo log --oneline
 git -C /Users/patrykmac/homelab-repo ls-remote origin main
 ```
 
+## Homelab-docs-public GitHub push
+
+- Purpose: a one-way, near-real-time push of only this document (`HOMELAB-MACMINI.md`) to the same public GitHub repository the Fedora miniPC already pushes its `HOMELAB.md` to, so both source-of-truth files live at one public location for GPT/Claude to fetch via GitHub's raw content API. This is separate from and unrelated to the homelab-repo Git snapshot (Forgejo) documented above; it never touches `/Users/patrykmac/homelab-repo` or that pipeline's deploy key, collector, or LaunchAgent.
+- GitHub repository: `patryk-homelab/homelab-docs-public` (public). The Fedora miniPC pushes `HOMELAB.md` there independently; this mechanism pushes only `HOMELAB-MACMINI.md` and never reads or modifies `HOMELAB.md`.
+- Local working copy: `/Users/patrykmac/homelab-docs-public-github`, a normal Git repo that the push script only ever writes into (one-way, append-only; never read from or restored into by anything else).
+- Push script: `/Users/patrykmac/homelab/backup/push-homelab-docs-public-github-macmini.sh` (mode `700`). Reads the single watched source path from `/Users/patrykmac/homelab/backup/config/homelab-docs-public-github-watchpath.txt` (mode `600`), verifies the source exists, runs the existing secret-scan gate library `/Users/patrykmac/homelab/backup/lib/secret-scan-homelab-repo.sh` over the live source before anything is copied — the run aborts with nothing copied or committed if any potential secret literal is found — then copies `HOMELAB-MACMINI.md` into the working copy, `git add`, and commits only if something actually changed. An `mkdir`-based lock file serializes concurrent runs.
+- Auto-push: after a successful commit, the script runs `git push origin main`. The "nothing changed" branch exits before that point, so an idle run makes zero network calls. Commit messages are `Snapshot <ISO8601 UTC timestamp>`.
+- Deploy key: a dedicated ed25519 keypair, `~/.ssh/github-homelab-docs-public-mm-deploy` (private key mode `600`), generated specifically for this push and not reused elsewhere (including the Forgejo deploy key). Registered as a second repository-scoped Deploy Key (not an account-level key) on `homelab-docs-public` with Write Access, alongside Fedora's own deploy key, so it can only push to this one repository.
+- SSH configuration: a dedicated `Host github-homelab-docs-public-mm` alias in `~/.ssh/config` (`HostName github.com`, `User git`, `IdentityFile` pointing at the deploy key, `IdentitiesOnly yes`). No other SSH configuration was changed. `origin` in `/Users/patrykmac/homelab-docs-public-github` is `github-homelab-docs-public-mm:patryk-homelab/homelab-docs-public.git`.
+- Near-real-time trigger: the `com.patrykmac.homelab-docs-public-github-watch` user LaunchAgent (`/Users/patrykmac/Library/LaunchAgents/com.patrykmac.homelab-docs-public-github-watch.plist`) uses launchd's native `WatchPaths` key to run the push script whenever `HOMELAB-MACMINI.md` changes. This is near-real-time, not literally instant: it is driven by macOS FSEvents/kqueue with no hard latency guarantee.
+- The `WatchPaths` array is generated, not hand-typed, by `/Users/patrykmac/homelab/backup/generate-watchpaths-plist-homelab-docs-public-github.sh` (mode `700`), which reads the same single-path config file the push script itself reads, so the watched path and the pushed file can never drift apart. Re-run this script (then reload the LaunchAgent) after any change to the config.
+- Daily fallback: the same plist also carries a `StartCalendarInterval` entry at `03:25` (a few minutes after the existing homelab-repo-watch `03:20` fallback, so the two don't collide), so a change is still picked up even if a `WatchPaths` event happens while the Mac is asleep or before the agent is loaded after a reboot.
+- No other existing LaunchAgent, service, the homelab-repo/Forgejo pipeline, or the Fedora miniPC was touched by this feature.
+
+```sh
+# Status of the watch/fallback LaunchAgent
+launchctl print gui/$(id -u)/com.patrykmac.homelab-docs-public-github-watch
+
+# Manual push run (normally only triggered by WatchPaths or the 03:25 fallback)
+/Users/patrykmac/homelab/backup/push-homelab-docs-public-github-macmini.sh
+
+# Regenerate the WatchPaths plist after editing the config, then reload
+/Users/patrykmac/homelab/backup/generate-watchpaths-plist-homelab-docs-public-github.sh
+launchctl bootout gui/$(id -u) /Users/patrykmac/Library/LaunchAgents/com.patrykmac.homelab-docs-public-github-watch.plist
+launchctl bootstrap gui/$(id -u) /Users/patrykmac/Library/LaunchAgents/com.patrykmac.homelab-docs-public-github-watch.plist
+
+# History, remote state, and public fetch check
+git -C /Users/patrykmac/homelab-docs-public-github log --oneline
+git -C /Users/patrykmac/homelab-docs-public-github ls-remote origin main
+curl https://raw.githubusercontent.com/patryk-homelab/homelab-docs-public/main/HOMELAB-MACMINI.md
+```
+
 ## Backup
 
 ### Time Machine
