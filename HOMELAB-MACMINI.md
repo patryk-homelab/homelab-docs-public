@@ -1,6 +1,6 @@
 # Mac mini Homelab Inventory
 
-Last updated: 2026-07-25
+Last updated: 2026-07-26
 
 This file documents the current Mac mini backup/control homelab setup. It is documentation only and should stay conservative. The Mac mini is intentionally lightweight to preserve RAM and disk for local LLM/OpenLLM work.
 
@@ -192,26 +192,13 @@ PATH="/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:$PATH" \
 - Homarr may also use the Mac mini's LAN-only Glances API as a data source for CPU/RAM metrics.
 - No Mac mini SSH, router, NAS, Homepage, Homarr, or Docker component is installed locally on this Mac mini; the dashboard entries are remote links only.
 
-## LAN documentation viewer
+## LAN documentation viewer (decommissioned)
 
-- Purpose: native, read-only browser view of this source-of-truth document for the future Fedora Homarr `Mac Mini Docs` application tile. This task does not modify Fedora or Homarr.
-- URL: `http://192.168.10.13:3004/`.
-- Bind policy: only `192.168.10.13:3004`; it is not bound to `0.0.0.0`, localhost-only, Tailscale, a reverse proxy, or any public interface.
-- Runtime and server: existing Homebrew Python standard library at `/opt/homebrew/bin/python3`, with fixed implementation `/Users/patrykmac/homelab/homelab-docs/server.py`.
-- LaunchAgent: `com.patrykmac.homelab-docs` at `/Users/patrykmac/Library/LaunchAgents/com.patrykmac.homelab-docs.plist`, using `RunAtLoad`, `KeepAlive`, and the explicit minimal PATH.
-- Logs: `/Users/patrykmac/homelab/homelab-docs/logs/launchd.stdout.log` and `/Users/patrykmac/homelab/homelab-docs/logs/launchd.stderr.log`.
-- Read-only/security model: only `GET` and `HEAD` for fixed routes `/` and non-sensitive `/health` are accepted. `/` reads only the fixed `HOMELAB-MACMINI.md` source on every request and safely escapes source content before local HTML rendering. No file path input, directory listing, upload, edit, delete, POST/PUT/PATCH/DELETE, external JavaScript/CSS/fonts/CDNs, analytics, credentials, or reverse proxy is present. Other paths return `404`; unsupported methods return `405`; restrictive content-type, CSP, frame, referrer, cache, and sniffing headers are sent.
-- The service has no write operation and cannot modify the source document. Its normal owner/mode remain `patrykmac:staff` and `0644`.
-- Backup coverage includes `server.py`, this document, and the LaunchAgent. Transient logs, bytecode cache, PID files, sockets, and temporary files are intentionally excluded.
-
-```sh
-# Status, restart, logs, disable, and re-enable only this viewer
-launchctl print gui/$(id -u)/com.patrykmac.homelab-docs
-launchctl kickstart -k gui/$(id -u)/com.patrykmac.homelab-docs
-tail -n 100 /Users/patrykmac/homelab/homelab-docs/logs/launchd.stderr.log
-launchctl bootout gui/$(id -u) /Users/patrykmac/Library/LaunchAgents/com.patrykmac.homelab-docs.plist
-launchctl bootstrap gui/$(id -u) /Users/patrykmac/Library/LaunchAgents/com.patrykmac.homelab-docs.plist
-```
+- Status: stopped and persistently disabled on 2026-07-26. The former native LAN viewer is decommissioned in favor of the public GitHub mirror: `patryk-homelab/homelab-docs-public`.
+- The service has no active listener and must not be re-added as a Fedora Homarr tile.
+- Retained for a future deliberate reactivation: implementation `/Users/patrykmac/homelab/homelab-docs/server.py`; LaunchAgent `com.patrykmac.homelab-docs` at `/Users/patrykmac/Library/LaunchAgents/com.patrykmac.homelab-docs.plist`; logs `/Users/patrykmac/homelab/homelab-docs/logs/launchd.stdout.log` and `/Users/patrykmac/homelab/homelab-docs/logs/launchd.stderr.log`.
+- The plist, application directory, server implementation, and logs remain on disk unchanged; only the loaded job was stopped and its user-domain LaunchAgent was disabled.
+- Backup coverage continues to include `server.py`, this document, and the retained LaunchAgent. Transient logs, bytecode cache, PID files, sockets, and temporary files remain excluded.
 
 ## Glances
 
