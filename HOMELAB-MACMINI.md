@@ -781,3 +781,5 @@ ls -lh /Volumes/macmini-backup-ssd/Homelab-Backups
   - whether it affects RAM/disk budget for local LLM use
   - backup/storage notes if relevant
 - Preserve the distinction between intentional background services (LaunchAgents/LaunchDaemons) and unwanted restored GUI apps/windows after login.
+
+<!-- TEST-MARKER: push-retry test commit, will be reverted by next real script run -->
