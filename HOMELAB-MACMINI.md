@@ -653,6 +653,20 @@ git -C /Users/patrykmac/homelab-docs-public-github ls-remote origin main
 curl https://raw.githubusercontent.com/patryk-homelab/homelab-docs-public/main/HOMELAB-MACMINI.md
 ```
 
+## iCloud homelab document exchange
+
+- Shared iCloud folder (verified on disk): `/Users/patrykmac/Library/Mobile Documents/com~apple~CloudDocs/Desktop/HOMELAB`. The alternate Finder Desktop path `/Users/patrykmac/Desktop/HOMELAB` is not present on this host.
+- Fedora-to-Mac receiver: the Fedora miniPC's dedicated public key is an untrusted, narrowly scoped credential in `/Users/patrykmac/.ssh/authorized_keys`. Its entry is restricted to `command="/Users/patrykmac/homelab/backup/receive-homelab-md.sh",restrict`; the forced-command script ignores `SSH_ORIGINAL_COMMAND`, reads standard input only, and atomically writes exactly `HOMELAB.md` in the shared iCloud folder using a same-directory temporary file and `mv`. It provides no shell, forwarding, or other file access.
+- Mac-to-iCloud push: `/Users/patrykmac/homelab/backup/push-homelab-macmini-icloud.sh` (mode `700`) atomically mirrors only the canonical source `/Users/patrykmac/homelab/HOMELAB-MACMINI.md` to `HOMELAB-MACMINI.md` in that folder. It compares content first and exits without writing when unchanged.
+- Automatic trigger: user LaunchAgent `com.patrykmac.homelab-macmini-icloud-push` at `/Users/patrykmac/Library/LaunchAgents/com.patrykmac.homelab-macmini-icloud-push.plist` uses `WatchPaths` for the canonical source. It is independent of and additional to the existing GitHub mirror push.
+- Recovery/backup coverage: the receiver script, push script, and LaunchAgent are included in the canonical homelab backup. iCloud Drive contents themselves remain excluded from that archive.
+
+```sh
+# Manual atomic push and LaunchAgent status
+/Users/patrykmac/homelab/backup/push-homelab-macmini-icloud.sh
+launchctl print gui/$(id -u)/com.patrykmac.homelab-macmini-icloud-push
+```
+
 ## Backup
 
 ### Time Machine
