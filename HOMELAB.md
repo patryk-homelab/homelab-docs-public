@@ -1,6 +1,6 @@
 # Homelab Inventory
 
-Last updated: 2026-07-25
+Last updated: 2026-07-26
 
 This file documents the current miniPC Fedora homelab setup. It intentionally does not contain passwords, tokens, API keys, Uptime Kuma push URLs, or other secrets.
 
@@ -419,7 +419,9 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 - Pushover secrets: `/home/patryk/scripts/pushover.env` and `/home/patryk/docker/n8n/.env` (for n8n). Secret values are strictly not documented here.
 - Pushover is the active/default notification provider for the homelab. changedetection.io uses Pushover through Apprise with `pover://...` configured manually in its UI. Do not document or expose the actual Pushover tokens or keys.
 - Used for script notifications that do not need Uptime Kuma monitoring, such as reboot-needed, daily report, SMART, and certificate-expiry notices.
-- Daily homelab report notifications use the title `MiniPC - Daily Report` (with ` - WARN` appended only when that report has warnings).
+- Daily homelab report notifications use the title `MiniPC - Daily Report`.
+  - The title gets ` - WARN` only for a failed, missing, mismatched, or more-than-30-hours-old backup; an unavailable or unhealthy `/mnt/nas-minipc-backup` mount; a sampled rolling 24-hour RAM high over 90%; or a missing/inactive important timer.
+  - Available Fedora or DIUN updates, Reboot Needed, and Docker non-running container counts remain in the report body but do not add ` - WARN` by themselves.
 - Example usage:
 
 ```bash
@@ -444,6 +446,7 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 - Uses the shared helper: `/home/patryk/scripts/notify.sh`
 - Runs daily at 09:30 through `daily-homelab-report.timer` when the systemd unit and timer are installed.
 - Sends one compact report in this order: Uptime; current RAM plus sampled 24-hour high; NAS mount health; backup status/latest age; important-timer health; Reboot Needed; Docker running/total counts and non-running problems; the three-line Updates section (`Updates:`, compact Fedora status, compact DIUN status); and a final Recommendations line. Host, Kernel, and Load are omitted. The DIUN status never lists image names; the Recommendations line names only services/images classified as critical/important by the existing checks, or explicitly states that none need review.
+- Appends ` - WARN` to the title only for a failed/missing/mismatched/stale backup, unhealthy or unavailable NAS mount, rolling 24-hour RAM high over 90%, or missing/inactive important timer. Fedora/DIUN updates, Reboot Needed, and Docker non-running counts do not trigger the suffix by themselves.
 - Does not use Uptime Kuma as a monitor.
 - Does not install updates, reboot, restart containers, or run speedtests. Updates remain manual/planned maintenance only.
 - `/home/patryk/scripts/daily-homelab-report.sh --dry-run` performs the live read-only report checks and prints the exact would-be report without Pushover. `--test-notification` sends only a clearly labelled notification-format test.
