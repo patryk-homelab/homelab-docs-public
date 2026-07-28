@@ -104,6 +104,7 @@ less ~/docker/HOMELAB.md
 | CyberChef | `cyberchef` | 8080 | `192.168.10.12:8083` / `http://192.168.10.12:8083/` | None; `https://cyberchef.patrykw.uk/` |
 | Czkawka | `czkawka` | 5800 | `192.168.10.12:8084` / `http://192.168.10.12:8084/` | None; LAN-only, no public exposure; ad-hoc/occasional use, not monitored |
 | FileBrowser Quantum | `filebrowser` | 80 | `192.168.10.12:8085` / `http://192.168.10.12:8085/`; `100.118.164.107:8085` / `http://100.118.164.107:8085/` (Tailscale) | None; LAN + Tailscale only, full read-write access to `/home/patryk`; source `private: true` blocks public/anonymous shares; optional (not enforced) 2FA |
+| RSS-Bridge | `rss-bridge` | 80 | `192.168.10.12:8086` / `http://192.168.10.12:8086/` | None; LAN-only, no public exposure; complements FreshRSS — generates feeds for FreshRSS to subscribe to |
 | n8n | `n8n` | 5678 | `192.168.10.12:5678` / `http://192.168.10.12:5678/` | None |
 | UpSnap | `upsnap` | 8090 | `http://192.168.10.12:8090/` | None; `https://upsnap.patrykw.uk/` |
 | Caddy reverse proxy | `reverse-proxy` | 80 | `192.168.10.12:80` / `http://192.168.10.12/` (Homarr fallback) | Homarr, Paperless |
