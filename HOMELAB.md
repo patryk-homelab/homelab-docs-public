@@ -479,6 +479,7 @@ Known Compose files under `/home/patryk/docker`:
 - `/home/patryk/docker/cyberchef/docker-compose.yml`
 - `/home/patryk/docker/czkawka/compose.yml`
 - `/home/patryk/docker/filebrowser/compose.yml`
+- `/home/patryk/docker/rss-bridge/compose.yml`
 - `/home/patryk/docker/n8n/docker-compose.yml`
 - `/home/patryk/docker/upsnap/compose.yml`
 - `/home/patryk/docker/reverse-proxy/compose.yml`
