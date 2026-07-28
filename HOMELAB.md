@@ -463,7 +463,7 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 
 ## Docker compose folders
 
-Current expected Docker status: `20/20 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
+Current expected Docker status: `21/21 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
 
 Known Compose files under `/home/patryk/docker`:
 
