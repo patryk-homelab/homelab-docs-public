@@ -504,6 +504,8 @@ Known service folders under `/home/patryk/docker`:
   - `/home/patryk/docker/czkawka/config` (Czkawka persistent GUI configuration, state, and logs; `/home/patryk` is mounted in the container only as `/storage:ro`)
 - `/home/patryk/docker/filebrowser`
   - `/home/patryk/docker/filebrowser/data` (FileBrowser Quantum config, BoltDB database, cache, password hashes, and encrypted TOTP secrets; private-backup-only, never part of the public documentation mirror)
+- `/home/patryk/docker/rss-bridge`
+  - `/home/patryk/docker/rss-bridge/config` (RSS-Bridge `config.ini.php`: enabled bridges, settings)
 - `/home/patryk/docker/n8n`
 - `/home/patryk/docker/upsnap`
 - `/home/patryk/docker/reverse-proxy`
