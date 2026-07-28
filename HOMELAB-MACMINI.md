@@ -1,6 +1,6 @@
 # Mac mini Homelab Inventory
 
-Last updated: 2026-07-26
+Last updated: 2026-07-28
 
 This file documents the current Mac mini backup/control homelab setup. It is documentation only and should stay conservative. The Mac mini is intentionally lightweight to preserve RAM and disk for local LLM/OpenLLM work.
 
