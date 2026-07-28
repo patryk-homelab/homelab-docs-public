@@ -1,6 +1,6 @@
 # Homelab Inventory
 
-Last updated: 2026-07-26
+Last updated: 2026-07-28
 
 This file documents the current miniPC Fedora homelab setup. It intentionally does not contain passwords, tokens, API keys, Uptime Kuma push URLs, or other secrets.
 
