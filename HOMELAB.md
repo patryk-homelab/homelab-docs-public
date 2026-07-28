@@ -583,6 +583,9 @@ Current backup includes:
 - FileBrowser Quantum:
   - `/home/patryk/docker/filebrowser/compose.yml` and protected `.env` are covered by the generic Compose-file/`.env` collection.
   - `/home/patryk/docker/filebrowser/data` is explicitly archived under `bind_mounts/filebrowser_data/`; it contains `config.yaml`, the v1 stable BoltDB database, cache, password hashes, and encrypted TOTP secrets. This is sensitive private-backup-only material and is never added to the public GitHub documentation mirror.
+- RSS-Bridge:
+  - `/home/patryk/docker/rss-bridge/compose.yml` is covered by the generic Compose-file collection.
+  - `/home/patryk/docker/rss-bridge/config` (the `config.ini.php` with enabled bridges and settings) is explicitly archived under `bind_mounts/rss_bridge_config/`; the image has no separate internal data volume.
 - Reverse proxy:
   - `/home/patryk/docker/reverse-proxy/compose.yml`
   - `/home/patryk/docker/reverse-proxy/Caddyfile`
