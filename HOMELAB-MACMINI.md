@@ -741,6 +741,7 @@ launchctl print gui/$(id -u)/com.patrykmac.homelab-macmini-icloud-push
 
 - Archive format: `macmini-homelab-YYYY-MM-DD_HHMMSS.tar.gz` with a matching `.sha256` file.
 - Validation sequence: archive integrity test, local SHA-256 verification, NAS SHA-256 verification, non-restoring extraction/verification in a temporary directory, Uptime Kuma SQLite integrity validation, full AdGuard mode validation, homelab-repo Git integrity validation, and coverage checks. Verification never restores over live paths.
+- Per-archive authoritative status sidecar: `<archive base>.status`, written once at the end of the run, after local archive creation, local checksum verification, and non-restoring restore-verify have all already passed. Since 2026-07-28 it records four lines — `local_status`, `nas_status`, `archive` (basename), and `timestamp` (`%FT%T%z`) — so a consumer can determine full backup identity, timing, and outcome from this one file without re-deriving it via its own archive glob/checksum re-check against the removable volume. Older status files from before that date contain only `nas_status`; consumers must treat a missing `local_status` as `success` (the file was only ever written after a successful local archive under the prior format too) and fall back to the status file's own mtime when `timestamp` is absent.
 
 ### Retention and NAS behavior
 
