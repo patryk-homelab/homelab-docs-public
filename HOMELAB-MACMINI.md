@@ -345,6 +345,7 @@ launchctl bootstrap gui/$(id -u) /Users/patrykmac/Library/LaunchAgents/com.patry
   - transient logs/cache: `/Users/patrykmac/homelab/filebrowser/logs/`, `/Users/patrykmac/homelab/filebrowser/data/tmp/`
 - LaunchAgent: `com.patrykmac.filebrowser`, user-level with `RunAtLoad` and `KeepAlive`.
 - Backup coverage: binary, non-secret config, consistent embedded database copy, wrapper, canonical plist, and LaunchAgents plist are included. `secrets.env`, cache, and logs are excluded.
+- The embedded `filebrowser.sqlite` is actually a BoltDB file despite its name (confirmed via its on-disk magic bytes); the backup takes a plain live copy plus a non-empty check rather than an online SQLite backup, since BoltDB's single-writer, copy-on-write page format tolerates a live byte copy. The backup script's comment describing this was corrected on 2026-07-28 (it previously incorrectly claimed the service is paused for the copy). A stray `filebrowser.sqlite.failed-initialization` leftover from a 2026-07-26 troubleshooting session (unreferenced, distinct content from the live database) was also deleted the same day.
 
 ## Homelab status agent
 
