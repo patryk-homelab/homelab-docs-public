@@ -633,6 +633,11 @@ Current backup includes:
   - `/home/patryk/docker/stirling-pdf/configs` is explicitly archived under `bind_mounts/stirling_pdf_configs/`; it contains generated settings and any future persistent application state.
   - There is no `.env` because this ultra-lite build has no authentication module and therefore no deployed credentials or secrets.
   - Restore verification requires both the Compose file and generated `settings.yml`.
+- Watcharr:
+  - `/home/patryk/docker/watcharr/compose.yml` and protected mode-600 `.env` are covered by the generic Compose-file/`.env` collection; `.env` contains the generated initial admin username/password for secure retrieval and is not injected into the container.
+  - `/home/patryk/docker/watcharr/data` is explicitly copied under `bind_mounts/watcharr_data/`; this includes `watcharr.db`, `watcharr.json`, cache, and any adjacent persistent application state.
+  - The backup script briefly stops Watcharr before copying the full data tree, as upstream requires for SQLite consistency, and its EXIT safety trap restarts the service if a later backup step fails.
+  - Restore verification requires the Compose file, protected environment, SQLite database, and server configuration.
 - ConvertX:
   - `/home/patryk/docker/convertx/compose.yml` and protected mode-600 `.env` are covered by the generic Compose-file/`.env` collection. The account email/password values retained in `.env` are superseded historical first-run records only; current login state is stored in SQLite and managed in-app.
   - `/home/patryk/docker/convertx/CREDENTIALS.md` is explicitly archived with the Compose definition and contains no credentials.
