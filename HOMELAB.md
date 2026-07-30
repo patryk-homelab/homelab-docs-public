@@ -976,7 +976,7 @@ docker stats --no-stream
 Check listening ports:
 
 ```bash
-ss -tulpn | grep -E ':(22|53|80|443|3001|3002|5000|5678|7575|8010|8082|8083|8095|8181|3389|9090)\b' || true
+ss -tulpn | grep -E ':(22|53|80|443|3001|3002|5000|5678|7575|8010|8082|8083|8095|8096|8181|3389|9090)\b' || true
 ```
 
 Check NAS mount:
