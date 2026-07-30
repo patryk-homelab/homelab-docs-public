@@ -180,7 +180,7 @@ Wake-on: g
 - Board sections, left to right: Monitoring (AdGuard Home, Uptime Kuma, Change Detection, Speedtest); Management (Router, Web Console); Apps (CyberChef, FreshRSS, n8n, Paperless); Mac Mini (AdGuard Home - Mac, Uptime Kuma - Mac, MeTube).
 - Czkawka is an occasional duplicate-file finder at `http://192.168.10.12:8084/`. Its Homarr app ID is `pvwy1xt5nzldec85tskqstb2` and dashboard item ID is `zbqp3qhb2qt8iwsohtup43ac`; it uses the official `czkawka.svg` icon and is currently auto-placed in Homarr's unnamed `empty` default section. It still needs to be manually dragged into Apps alongside CyberChef, FreshRSS, n8n, and Paperless.
 - Filebrowser is a FileBrowser Quantum link at `http://192.168.10.12:8085/`. Its Homarr app ID is `iln0ehbxqlrp9jyr8b9naazm` and dashboard item ID is `scz9q4qb8y9odofdeputcsd1`; it uses the official `filebrowser-quantum.svg` icon and was auto-placed in Homarr's unnamed `empty` default section. It still needs to be manually dragged into Apps.
-- Seven additional Homarr application tiles remain in Homarr's automatic placement. The current authenticated MCP schema does not provide safe read or placement operations for existing board items/sections: the user must manually drag `UpSnap`, `Forgejo`, `GitHub`, and `Shlink` into Management, `UpSnap - Mac` and `Filebrowser - Mac` into Mac Mini, and `Czkawka` into Apps.
+- Eight additional Homarr application tiles remain in Homarr's automatic placement. The current authenticated MCP schema does not provide safe read or placement operations for existing board items/sections: the user must manually drag `UpSnap`, `Forgejo`, `GitHub`, and `Shlink` into Management, `UpSnap - Mac` and `Filebrowser - Mac` into Mac Mini, and `Czkawka` plus `ConvertX` into Apps.
   - `UpSnap` is the Fedora miniPC UpSnap instance: URL `http://192.168.10.12:8090`; health URL `http://192.168.10.12:8090/api/health`; Homarr app ID `qu97k9v530nicivda6v5omuc`; dashboard item ID `e66ixcjo1ocghaeaoxjq1u5y`; official Homarr icon `upsnap.svg`; intended section Management. This tile links to the miniPC UpSnap instance.
   - `UpSnap - Mac` is the Mac mini native UpSnap instance: URL `http://192.168.10.13:8090`; health URL `http://192.168.10.13:8090/api/health`; Homarr app ID `bi6ndnndxytrfjqmzt3xnc06`; dashboard item ID `o753cbfpf27lcmb7pgpn2g9n`; official Homarr icon `upsnap.svg`; intended section Mac Mini. This tile is only a remote link to the native Mac mini UpSnap service.
   - `Filebrowser - Mac` is the Mac mini FileBrowser Quantum instance: URL `http://192.168.10.13:8085/`; health URL is its root URL; Homarr app ID `to58wou2rh2t8s22exiylkb4`; dashboard item ID `fvj24as1fcmdmdllj23rvdwo`; official Homarr icon `filebrowser-quantum.svg`; actual current section Homarr's unnamed `empty` default section; intended section Mac Mini. This tile is only a remote link to the Mac mini service and still needs to be manually dragged into Mac Mini.
@@ -188,8 +188,9 @@ Wake-on: g
   - `Shlink` is the URL-shortener administration web client: URL `https://shlink-admin.patrykw.uk/`, used because the private Caddy hostname serves the web client over trusted TLS on LAN/Tailscale while keeping the public `s.patrykw.uk` redirect origin separate; health URL `https://shlink-admin.patrykw.uk/rest/health`; Homarr app ID `ev8chpc3fm5zy05pbu0ikbcu`; dashboard item ID `w3ianl2ny2cq8zcmhjquja6p`; official Homarr icon `shlink.svg`; intended section Management. This tile was auto-placed in Homarr's unnamed `empty` default section and still needs to be manually dragged into Management.
   - `GitHub` is the public homelab documentation repository: URL `https://github.com/patryk-homelab/homelab-docs-public`; no health check; Homarr app ID `hyresgcz6nf88md3yiyy1ebt`; dashboard item ID `d6zqh6t737ghi9p3cdkvw8gc`; official Homarr icon `github.svg`; intended section Management. This tile links to the public homelab documentation repository.
   - `Czkawka` is the occasional duplicate-file finder: URL `http://192.168.10.12:8084/`; no health check; Homarr app ID `pvwy1xt5nzldec85tskqstb2`; dashboard item ID `zbqp3qhb2qt8iwsohtup43ac`; official Homarr icon `czkawka.svg`; actual current section Homarr's unnamed `empty` default section; intended section Apps. This tile links to the LAN-only Czkawka GUI and still needs to be manually dragged into Apps.
+  - `ConvertX` is the authenticated LAN/Tailscale-only file converter: URL `http://192.168.10.12:8094/`; health URL `http://192.168.10.12:8094/healthcheck`; Homarr app ID `j10wy9dvjpn22vz30ldwszzo`; dashboard item ID `wwullclqk1a3w3ugeaj29qov`; closest available official dashboard-icons file-conversion icon `convertio.svg` because no ConvertX icon exists; actual current section Homarr's unnamed `empty` default section; intended section Apps. It still needs to be manually dragged into Apps.
 - `RSS-Bridge` is the LAN-only feed-generator link: URL `http://192.168.10.12:8086/`; health URL `http://192.168.10.12:8086/` (root returns HTTP 200; `/health` returns 404). Its Homarr app ID is `emputz17z1pa2ipemfjfrdrt` and dashboard item ID is `ic4sjlebpl8n9vo9e9yflm74`; it uses Homarr's official `rss-bridge.svg` icon and was auto-placed in Homarr's unnamed `empty` default section. Its intended section is Apps; it needs to be manually dragged there alongside CyberChef, FreshRSS, n8n, Paperless, Czkawka, and Filebrowser.
-- `Installed Services` is a native Homarr `notebook` widget containing one manually curated informational list of the active Fedora miniPC and Mac mini homelab services/automations that have no human-facing web UI. Its Homarr dashboard item ID is `er6cl8t0pu6stcu4l0p8mz5q`; it was auto-placed at the connector's default `1x1` size in Homarr's unnamed `empty` section. Its intended section is Management, alongside the other backend/admin-facing entries. The connector cannot safely place or resize an item inside an existing section, so the user must manually drag it into Management and resize it to a readable footprint, like the other automatically placed items documented above.
+- `Installed Services` is a native Homarr `notebook` widget containing one manually curated informational list of the active Fedora miniPC and Mac mini homelab services/automations that have no human-facing web UI. The miniPC list includes imgproxy as `image processing API — no browsable UI, called by other services`. Its Homarr dashboard item ID is `er6cl8t0pu6stcu4l0p8mz5q`; it was auto-placed at the connector's default `1x1` size in Homarr's unnamed `empty` section. Its intended section is Management, alongside the other backend/admin-facing entries. The connector cannot safely place or resize an item inside an existing section, so the user must manually drag it into Management and resize it to a readable footprint, like the other automatically placed items documented above.
 - The `Installed Services` list is manually curated and must be reviewed whenever a no-UI service or automation is added to or removed from either host. Apply the existing [Maintenance rule](#maintenance-rule) when updating the current-state inventory; do not let this widget become a second source of truth.
 - Native widgets are below the dashboard groups: the Speedtest Tracker widget is on the left and the System Resources widget is beside it. The normal clickable Speedtest application link remains separate from the genuine native Speedtest Tracker widget, which is backed by the `Internet Performance` integration and displays download, upload, and ping.
 - Fedora miniPC CPU/RAM monitoring is provided by Glances `4.5.5` at `/home/patryk/docker/glances/compose.yml`. It is internal-only on the existing `homarr_default` Docker bridge as `http://glances:61208`, has no published host port, no Docker socket, no host mount, no privileged mode, and drops all Linux capabilities. The documented `pid: host` mode is used only so Glances reads Fedora host CPU/RAM rather than container values.
@@ -484,7 +485,7 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 
 ## Docker compose folders
 
-Current expected Docker status: `25/25 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
+Current expected Docker status: `28/28 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
 
 Known Compose files under `/home/patryk/docker`:
 
@@ -507,6 +508,8 @@ Known Compose files under `/home/patryk/docker`:
 - `/home/patryk/docker/paperless/docker-compose.yml`
 - `/home/patryk/docker/caddy/compose.yml`
 - `/home/patryk/docker/shlink/compose.yml`
+- `/home/patryk/docker/imgproxy/compose.yml`
+- `/home/patryk/docker/convertx/compose.yml`
 
 Known service folders under `/home/patryk/docker`:
 
@@ -528,6 +531,11 @@ Known service folders under `/home/patryk/docker`:
   - `/home/patryk/docker/filebrowser/data` (FileBrowser Quantum config, BoltDB database, cache, password hashes, and encrypted TOTP secrets; private-backup-only, never part of the public documentation mirror)
 - `/home/patryk/docker/rss-bridge`
   - `/home/patryk/docker/rss-bridge/config` (RSS-Bridge `config.ini.php`: enabled bridges, settings)
+- `/home/patryk/docker/imgproxy`
+  - `/home/patryk/docker/imgproxy/.env` (mode 600; imgproxy signing key and salt; never printed or committed)
+- `/home/patryk/docker/convertx`
+  - `/home/patryk/docker/convertx/.env` (mode 600; JWT secret and initial account credentials; never printed or committed)
+  - `/home/patryk/docker/convertx/data` (root-owned mode 750; SQLite database, uploads, converted outputs, and job history)
 - `/home/patryk/docker/n8n`
 - `/home/patryk/docker/upsnap`
 - `/home/patryk/docker/reverse-proxy`
