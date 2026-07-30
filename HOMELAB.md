@@ -617,7 +617,7 @@ Current backup includes:
   - `/home/patryk/docker/rss-bridge/config` (the `config.ini.php` with enabled bridges and settings) is explicitly archived under `bind_mounts/rss_bridge_config/`; the image has no separate internal data volume.
 - ConvertX:
   - `/home/patryk/docker/convertx/compose.yml` and protected mode-600 `.env` are covered by the generic Compose-file/`.env` collection. The account email/password values retained in `.env` are superseded historical first-run records only; current login state is stored in SQLite and managed in-app.
-  - `/home/patryk/docker/convertx/CREDENTIALS.md` is covered by the generic Compose-folder file collection and contains no credentials.
+  - `/home/patryk/docker/convertx/CREDENTIALS.md` is explicitly archived with the Compose definition and contains no credentials.
   - `/home/patryk/docker/convertx/data` is archived through a short-lived root container under `bind_mounts/convertx_data/data.tar.gz`; this preserves the SQLite database, uploads, converted outputs, and job history without broadening the live root-owned mode-750 directory.
   - Restore verification requires the Compose file, protected environment, and persistent-data archive.
 - Reverse proxy:
