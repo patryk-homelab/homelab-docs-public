@@ -479,7 +479,7 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 
 ## Docker compose folders
 
-Current expected Docker status: `21/21 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
+Current expected Docker status: `25/25 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
 
 Known Compose files under `/home/patryk/docker`:
 
@@ -501,6 +501,7 @@ Known Compose files under `/home/patryk/docker`:
 - `/home/patryk/docker/reverse-proxy/compose.yml`
 - `/home/patryk/docker/paperless/docker-compose.yml`
 - `/home/patryk/docker/caddy/compose.yml`
+- `/home/patryk/docker/shlink/compose.yml`
 
 Known service folders under `/home/patryk/docker`:
 
@@ -527,6 +528,10 @@ Known service folders under `/home/patryk/docker`:
 - `/home/patryk/docker/reverse-proxy`
 - `/home/patryk/docker/paperless`
 - `/home/patryk/docker/caddy` (`compose.yml`, `Caddyfile`, `Dockerfile`, `.env`; wildcard `*.patrykw.uk` DNS-01 TLS instance, 10 internal-only site blocks)
+- `/home/patryk/docker/shlink`
+  - `/home/patryk/docker/shlink/postgres-data` (PostgreSQL data; backed up through an online logical dump, not a blind live-file copy)
+  - `/home/patryk/docker/shlink/.env` (mode 600; database password and no-role admin API key; never committed)
+  - `/home/patryk/docker/shlink/Caddyfile.public` and `Dockerfile.public` (capability-free redirect-only public gateway)
 
 The `/home/patryk/docker/homelab-docs`, `/home/patryk/docker/homelab-docs-public`, and `/home/patryk/docker/cloudflared` Compose folders, including their configs and data, remain on disk but are intentionally stopped and decommissioned for possible future reactivation.
 
@@ -611,6 +616,12 @@ Current backup includes:
   - `/home/patryk/docker/caddy/Dockerfile`
   - `/home/patryk/docker/caddy/.env` (stored without printing secret values; holds `CLOUDFLARE_API_TOKEN`)
   - archived under `compose/caddy/`
+- Shlink:
+  - `/home/patryk/docker/shlink/compose.yml`, `/home/patryk/docker/shlink/Caddyfile.public`, and `/home/patryk/docker/shlink/Dockerfile.public`
+  - `/home/patryk/docker/shlink/.env` (mode 600; stored without printing the database password or admin API key)
+  - PostgreSQL is dumped online from `shlink-db` in custom archive format to `bind_mounts/shlink/shlink-db.dump`
+  - the dump must pass `pg_restore --list` before archive creation; the live PostgreSQL data directory is deliberately not copied while the database is running
+  - the restore verifier requires the Compose, protected environment, gateway configuration/build file, and logical database dump
 - n8n:
   - `/home/patryk/docker/n8n/docker-compose.yml`
   - `/home/patryk/docker/n8n/.env`
