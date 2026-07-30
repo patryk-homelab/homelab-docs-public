@@ -619,6 +619,14 @@ Current backup includes:
 - RSS-Bridge:
   - `/home/patryk/docker/rss-bridge/compose.yml` is covered by the generic Compose-file collection.
   - `/home/patryk/docker/rss-bridge/config` (the `config.ini.php` with enabled bridges and settings) is explicitly archived under `bind_mounts/rss_bridge_config/`; the image has no separate internal data volume.
+- imgproxy:
+  - `/home/patryk/docker/imgproxy/compose.yml` and protected mode-600 `.env` are covered by the generic Compose-file/`.env` collection.
+  - There is no persistent application-data directory; the signing key and salt in `.env` are the recovery-critical state.
+  - Restore verification requires both the Compose file and protected environment.
+- ConvertX:
+  - `/home/patryk/docker/convertx/compose.yml` and protected mode-600 `.env` are covered by the generic Compose-file/`.env` collection.
+  - `/home/patryk/docker/convertx/data` is archived through a short-lived root container under `bind_mounts/convertx_data/data.tar.gz`; this preserves the SQLite database, uploads, converted outputs, and job history without broadening the live root-owned mode-750 directory.
+  - Restore verification requires the Compose file, protected environment, and persistent-data archive.
 - Reverse proxy:
   - `/home/patryk/docker/reverse-proxy/compose.yml`
   - `/home/patryk/docker/reverse-proxy/Caddyfile`
