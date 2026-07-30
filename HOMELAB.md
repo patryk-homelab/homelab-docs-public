@@ -101,6 +101,7 @@ less ~/docker/HOMELAB.md
 | FreshRSS | `freshrss` | 80 | `192.168.10.12:8181` / `http://192.168.10.12:8181/` | None |
 | Speedtest Tracker | `speedtest-tracker` | 80 | `192.168.10.12:8082` / `http://192.168.10.12:8082/` | None; `https://speedtest.patrykw.uk/` |
 | changedetection.io | `changedetection` | 5000 | `192.168.10.12:5000` / `http://192.168.10.12:5000/` | None |
+| Wallos | `wallos` | 80 | `192.168.10.12:8282` / `http://192.168.10.12:8282/` | None; LAN/Tailscale-only, not proxied by Caddy |
 | CyberChef | `cyberchef` | 8080 | `192.168.10.12:8083` / `http://192.168.10.12:8083/` | None; `https://cyberchef.patrykw.uk/` |
 | Stirling-PDF (ultra-lite) | `stirling-pdf` | 8080 | `192.168.10.12:8095` / `http://192.168.10.12:8095/` | Internal DNS-01 TLS: `https://pdf.patrykw.uk/`; LAN/Tailscale-only; no public proxy; ultra-lite has no authentication module |
 | Watcharr | `watcharr` | 3080 | `192.168.10.12:8096` / `http://192.168.10.12:8096/` | Internal DNS-01 TLS: `https://seriale.patrykw.uk/`; LAN/Tailscale-only; authenticated; no public proxy |
@@ -156,6 +157,7 @@ Wake-on: g
 | UpSnap | `http://192.168.10.12:8090`; DNS-01 TLS alias `https://upsnap.patrykw.uk/` | `8090`; Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/upsnap/compose.yml`, `/home/patryk/docker/upsnap/data` | Yes | Wake-on-LAN web app (SvelteKit/Go/PocketBase), pinned to `ghcr.io/seriousm4x/upsnap:5.4.3`. It uses `network_mode: host`, but its web UI is bound only to `192.168.10.12:8090` through `UPSNAP_HTTP_LISTEN`, not exposed on Tailscale or `0.0.0.0`. Firewall `8090/tcp` is permanently allowed in the `enp1s0` zone. The admin account is managed in-app; DIUN tracks image updates. `https://upsnap.patrykw.uk/` is proxied by the separate internal-only DNS-01 TLS Caddy instance. |
 | Speedtest Tracker | `http://192.168.10.12:8082`; DNS-01 TLS alias `https://speedtest.patrykw.uk/` | `8082`; Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/speedtest-tracker`, `/home/patryk/docker/speedtest-tracker/config` | Yes | SQLite, no external DB. Tracks home internet only, not Starlink truck internet. Schedule: 00:00, 06:00, 12:00, 18:00 daily. Homarr provides both its normal application link and native Internet Performance widget. `https://speedtest.patrykw.uk/` is proxied by the separate internal-only DNS-01 TLS Caddy instance. |
 | changedetection.io | `http://192.168.10.12:5000` | `5000` | Docker Compose | `/home/patryk/docker/changedetection/compose.yml`, `/home/patryk/docker/changedetection/datastore` | Yes | Website and product price change monitoring. Notifications are configured manually in the UI through Pushover/Apprise; do not document or expose secret values. Homarr links to this service via LAN. |
+| Wallos | `http://192.168.10.12:8282` | `8282` | Docker Compose | `/home/patryk/docker/wallos/compose.yml`, `/home/patryk/docker/wallos/db`, `/home/patryk/docker/wallos/logos` | Yes | LAN/Tailscale-only (not proxied by Caddy), OIDC intentionally left disabled due to known CVEs in Wallos's OIDC flow, personal subscription tracker. |
 | NetAlertX | `http://192.168.10.12:8020/` | UI `8020`; GraphQL `8021` | Docker Compose | `/home/patryk/docker/netalertx/compose.yml`, `/home/patryk/docker/netalertx/data` | Yes | LAN device monitoring with pinned image `ghcr.io/netalertx/netalertx:26.7.1`, scanning only `192.168.10.0/24` on physical interface `enp1s0`. Server-side identification combines ARPSCAN, IPNEIGH (including NDP/IPv6) and NMAPDEV every five minutes; NMAPDEV host discovery retains ARP and adds ICMP echo, TCP SYN (22/80/443/3389/445/8080), TCP ACK (80/443), and UDP (53/67/123/161/5353) probes, with five retries and a 90-second host cap. ICMP status runs every five minutes; AVAHISCAN/mDNS, NSLOOKUP reverse DNS, DIG reverse DNS and NBTSCAN/NetBIOS are scheduled every five minutes with `REFRESH_FQDN=True`; VNDRPDT maintains the MAC vendor database. NMAP runs for newly found devices to collect ports and OS-fingerprint evidence without repeatedly scanning all devices. The application uses approved host networking and listens on `0.0.0.0:8020`; active and permanent firewalld rich rules accept `8020/8021` only from `192.168.10.0/24` and reject other sources, blocking Tailscale access. Homarr links directly to the LAN URL. Pushover credentials are configured securely in native NetAlertX settings; alerts are limited to genuinely new devices in `192.168.10.0/24`, and secret values are not documented. The `INTRNT` plugin shows the public Internet IP, which is expected behavior. No router, AdGuard, or other external-service importer is integrated; no reverse proxy, DNS rewrite, or Tailscale service access is configured. |
 | CyberChef | `http://192.168.10.12:8083`; DNS-01 TLS alias `https://cyberchef.patrykw.uk/` | `8083`; Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/cyberchef/docker-compose.yml` | Yes | Stateless local data conversion and analysis tool. Bound only to the miniPC LAN IP, not publicly exposed or proxied; Homarr links to it directly. `https://cyberchef.patrykw.uk/` is proxied by the separate internal-only DNS-01 TLS Caddy instance. |
 | Stirling-PDF (ultra-lite) | Direct `http://192.168.10.12:8095/`; internal DNS-01 TLS alias `https://pdf.patrykw.uk/` | `8095` (container `8080`); Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/stirling-pdf/compose.yml`, `/home/patryk/docker/stirling-pdf/configs` | Yes | Pinned to `stirlingtools/stirling-pdf:2.14.2-ultra-lite`, chosen for its smaller footprint and lack of heavy external dependencies. It retains core PDF operations such as merge, split, rotate, page organization, image/PDF basics, passwords, metadata, watermarking, and signing. Compared with full Stirling-PDF, ultra-lite omits OCR; Office/common-file conversion; PDF-to-Word/Presentation/XML/HTML/PDF-A; HTML/URL/EML/ebook/vector conversions; compression and repair backends; scan-image extraction; and other tools requiring LibreOffice, Python/OpenCV, Tesseract/OCRmyPDF, QPDF, Ghostscript/ImageMagick, WeasyPrint, Calibre, or related binaries. The deployed ultra-lite JAR reports `activeSecurity=false` and ignores login settings because the authentication module is not included, so any client with LAN or approved Tailscale subnet-route access can use it. It binds only to `192.168.10.12`, has no public Caddy/cloudflared route, uses the dedicated `stirling_pdf_internal` network, drops all capabilities before adding only `SETUID` and `SETGID` for the entrypoint's root-to-`stirlingpdfuser` transition, uses `no-new-privileges`, and has no Docker socket or privileged mode. A two-input PDF merge was verified end to end. The generic backup captures `compose.yml`; generated settings under `configs/` are archived as `bind_mounts/stirling_pdf_configs/` and required by restore verification. After the JVM was observed accepting connections but returning no bytes on both direct and Caddy paths, its thread dump showed all four virtual-thread carrier workers stalled during first-request CORS/class loading, including a wait on Spring Boot's nested-JAR lock. Compose now sets `JAVA_CUSTOM_OPTS=-Dspring.threads.virtual.enabled=false`, using Stirling's supported option hook to keep HTTP handling on platform threads; no Caddy header, WebSocket, host, origin, or base-URL override is needed. The container health check, direct URL, proxied health API, and identical direct/proxied HTML all return HTTP 200 after recreation. Fedora AdGuard resolves `pdf.patrykw.uk` correctly to `192.168.10.12`; the Mac mini AdGuard currently returns the incorrect `192.168.10.13` and must be corrected manually to `192.168.10.12`. |
@@ -501,7 +503,7 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 
 ## Docker compose folders
 
-Current expected Docker status: `29/29 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
+Current expected Docker status: `30/30 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
 
 Known Compose files under `/home/patryk/docker`:
 
@@ -513,6 +515,7 @@ Known Compose files under `/home/patryk/docker`:
 - `/home/patryk/docker/forgejo/compose.yml`
 - `/home/patryk/docker/speedtest-tracker/compose.yml`
 - `/home/patryk/docker/changedetection/compose.yml`
+- `/home/patryk/docker/wallos/compose.yml`
 - `/home/patryk/docker/netalertx/compose.yml`
 - `/home/patryk/docker/cyberchef/docker-compose.yml`
 - `/home/patryk/docker/stirling-pdf/compose.yml`
@@ -539,6 +542,9 @@ Known service folders under `/home/patryk/docker`:
 - `/home/patryk/docker/forgejo`
 - `/home/patryk/docker/speedtest-tracker`
 - `/home/patryk/docker/changedetection`
+- `/home/patryk/docker/wallos`
+  - `/home/patryk/docker/wallos/db` (SQLite database)
+  - `/home/patryk/docker/wallos/logos` (uploaded subscription logos)
 - `/home/patryk/docker/netalertx`
   - `/home/patryk/docker/netalertx/data` (application config and SQLite database)
 - `/home/patryk/docker/cyberchef`
@@ -626,6 +632,10 @@ Current backup includes:
   - `/home/patryk/docker/changedetection/datastore`
   - notifications are configured manually in the changedetection.io UI to use Pushover through Apprise `pover://...`
   - archived under `compose/changedetection/` and `bind_mounts/changedetection_datastore/`
+- Wallos:
+  - `/home/patryk/docker/wallos/compose.yml`
+  - `/home/patryk/docker/wallos/db` and `/home/patryk/docker/wallos/logos`
+  - archived under `compose/wallos/` and `bind_mounts/wallos/wallos_data.tar.gz`
 - NetAlertX:
   - `/home/patryk/docker/netalertx/compose.yml`
   - `/home/patryk/docker/netalertx/data` including application configuration and SQLite database state
@@ -1167,4 +1177,4 @@ Detailed change history is tracked in this host's Git repository (see the Homela
 - After Fedora/system updates and after any reboot: verify AdGuard/DNS, Docker service health, SSH access, and sleep/suspend/hibernate masks again.
 - Do not assume anti-sleep protection survived a kernel or system update until the masks and related settings are checked again.
 
-Already implemented and active: changedetection.io, Paperless-ngx, Pushover backup/homelab alerts, Daily homelab report, Reboot-needed notifier, Speedtest Tracker, DIUN, Anti-sleep monitoring, and NAS mount alert.
+Already implemented and active: changedetection.io, Wallos, Paperless-ngx, Pushover backup/homelab alerts, Daily homelab report, Reboot-needed notifier, Speedtest Tracker, DIUN, Anti-sleep monitoring, and NAS mount alert.
