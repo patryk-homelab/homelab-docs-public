@@ -600,6 +600,7 @@ Current backup includes:
   - `/home/patryk/docker/homarr/compose.yml`
   - `/home/patryk/docker/homarr/.env` (stored without printing secret values)
   - `/home/patryk/docker/homarr/data` including SQLite, Redis state, trusted certificates, uploaded/local assets, board/app/item/widget/integration data, and authentication data
+  - `/home/patryk/scripts/homarr-place-item.py`, the guarded cross-layout tRPC placement helper, archived under `scripts/`
 - Glances:
   - `/home/patryk/docker/glances/compose.yml` is explicitly archived; Glances has no recovery-critical runtime metrics cache.
 - Uptime Kuma bind-mounted data:
