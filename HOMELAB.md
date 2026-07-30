@@ -489,7 +489,7 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 
 ## Docker compose folders
 
-Current expected Docker status: `28/28 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
+Current expected Docker status: `29/29 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
 
 Known Compose files under `/home/patryk/docker`:
 
@@ -504,6 +504,7 @@ Known Compose files under `/home/patryk/docker`:
 - `/home/patryk/docker/netalertx/compose.yml`
 - `/home/patryk/docker/cyberchef/docker-compose.yml`
 - `/home/patryk/docker/stirling-pdf/compose.yml`
+- `/home/patryk/docker/watcharr/compose.yml`
 - `/home/patryk/docker/czkawka/compose.yml`
 - `/home/patryk/docker/filebrowser/compose.yml`
 - `/home/patryk/docker/rss-bridge/compose.yml`
@@ -531,6 +532,9 @@ Known service folders under `/home/patryk/docker`:
 - `/home/patryk/docker/cyberchef`
 - `/home/patryk/docker/stirling-pdf`
   - `/home/patryk/docker/stirling-pdf/configs` (generated application settings and persistent state; backed up)
+- `/home/patryk/docker/watcharr`
+  - `/home/patryk/docker/watcharr/.env` (mode 600; generated initial admin username/password for retrieval; never injected into the container, printed, or committed)
+  - `/home/patryk/docker/watcharr/data` (`watcharr.db` SQLite database, `watcharr.json` server configuration, cache, and application state; backed up during a brief consistent service stop)
 - `/home/patryk/docker/czkawka`
   - `/home/patryk/docker/czkawka/config` (Czkawka persistent GUI configuration, state, and logs; `/home/patryk` is mounted in the container only as `/storage:ro`)
 - `/home/patryk/docker/filebrowser`
@@ -545,7 +549,7 @@ Known service folders under `/home/patryk/docker`:
 - `/home/patryk/docker/upsnap`
 - `/home/patryk/docker/reverse-proxy`
 - `/home/patryk/docker/paperless`
-- `/home/patryk/docker/caddy` (`compose.yml`, `Caddyfile`, `Dockerfile`, `.env`; wildcard `*.patrykw.uk` DNS-01 TLS instance, 11 internal-only site blocks)
+- `/home/patryk/docker/caddy` (`compose.yml`, `Caddyfile`, `Dockerfile`, `.env`; wildcard `*.patrykw.uk` DNS-01 TLS instance, 13 internal-only site blocks)
 - `/home/patryk/docker/shlink`
   - `/home/patryk/docker/shlink/postgres-data` (PostgreSQL data; backed up through an online logical dump, not a blind live-file copy)
   - `/home/patryk/docker/shlink/.env` (mode 600; database password and no-role admin API key; never committed)
