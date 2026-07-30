@@ -102,6 +102,7 @@ less ~/docker/HOMELAB.md
 | Speedtest Tracker | `speedtest-tracker` | 80 | `192.168.10.12:8082` / `http://192.168.10.12:8082/` | None; `https://speedtest.patrykw.uk/` |
 | changedetection.io | `changedetection` | 5000 | `192.168.10.12:5000` / `http://192.168.10.12:5000/` | None |
 | CyberChef | `cyberchef` | 8080 | `192.168.10.12:8083` / `http://192.168.10.12:8083/` | None; `https://cyberchef.patrykw.uk/` |
+| Stirling-PDF (ultra-lite) | `stirling-pdf` | 8080 | `192.168.10.12:8095` / `http://192.168.10.12:8095/` | None; LAN/Tailscale-only through the approved subnet route; no public proxy; ultra-lite has no authentication module |
 | Czkawka | `czkawka` | 5800 | `192.168.10.12:8084` / `http://192.168.10.12:8084/` | None; LAN-only, no public exposure; ad-hoc/occasional use, not monitored |
 | FileBrowser Quantum | `filebrowser` | 80 | `192.168.10.12:8085` / `http://192.168.10.12:8085/`; `100.118.164.107:8085` / `http://100.118.164.107:8085/` (Tailscale) | None; LAN + Tailscale only, full read-write access to `/home/patryk`; source `private: true` blocks public/anonymous shares; optional (not enforced) 2FA |
 | RSS-Bridge | `rss-bridge` | 80 | `192.168.10.12:8086` / `http://192.168.10.12:8086/` | None; LAN-only, no public exposure; complements FreshRSS — generates feeds for FreshRSS to subscribe to |
@@ -156,6 +157,7 @@ Wake-on: g
 | changedetection.io | `http://192.168.10.12:5000` | `5000` | Docker Compose | `/home/patryk/docker/changedetection/compose.yml`, `/home/patryk/docker/changedetection/datastore` | Yes | Website and product price change monitoring. Notifications are configured manually in the UI through Pushover/Apprise; do not document or expose secret values. Homarr links to this service via LAN. |
 | NetAlertX | `http://192.168.10.12:8020/` | UI `8020`; GraphQL `8021` | Docker Compose | `/home/patryk/docker/netalertx/compose.yml`, `/home/patryk/docker/netalertx/data` | Yes | LAN device monitoring with pinned image `ghcr.io/netalertx/netalertx:26.7.1`, scanning only `192.168.10.0/24` on physical interface `enp1s0`. Server-side identification combines ARPSCAN, IPNEIGH (including NDP/IPv6) and NMAPDEV every five minutes; NMAPDEV host discovery retains ARP and adds ICMP echo, TCP SYN (22/80/443/3389/445/8080), TCP ACK (80/443), and UDP (53/67/123/161/5353) probes, with five retries and a 90-second host cap. ICMP status runs every five minutes; AVAHISCAN/mDNS, NSLOOKUP reverse DNS, DIG reverse DNS and NBTSCAN/NetBIOS are scheduled every five minutes with `REFRESH_FQDN=True`; VNDRPDT maintains the MAC vendor database. NMAP runs for newly found devices to collect ports and OS-fingerprint evidence without repeatedly scanning all devices. The application uses approved host networking and listens on `0.0.0.0:8020`; active and permanent firewalld rich rules accept `8020/8021` only from `192.168.10.0/24` and reject other sources, blocking Tailscale access. Homarr links directly to the LAN URL. Pushover credentials are configured securely in native NetAlertX settings; alerts are limited to genuinely new devices in `192.168.10.0/24`, and secret values are not documented. The `INTRNT` plugin shows the public Internet IP, which is expected behavior. No router, AdGuard, or other external-service importer is integrated; no reverse proxy, DNS rewrite, or Tailscale service access is configured. |
 | CyberChef | `http://192.168.10.12:8083`; DNS-01 TLS alias `https://cyberchef.patrykw.uk/` | `8083`; Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/cyberchef/docker-compose.yml` | Yes | Stateless local data conversion and analysis tool. Bound only to the miniPC LAN IP, not publicly exposed or proxied; Homarr links to it directly. `https://cyberchef.patrykw.uk/` is proxied by the separate internal-only DNS-01 TLS Caddy instance. |
+| Stirling-PDF (ultra-lite) | `http://192.168.10.12:8095/` | `8095` (container `8080`) | Docker Compose | `/home/patryk/docker/stirling-pdf/compose.yml`, `/home/patryk/docker/stirling-pdf/configs` | Yes | Pinned to `stirlingtools/stirling-pdf:2.14.2-ultra-lite`, chosen for its smaller footprint and lack of heavy external dependencies. It retains core PDF operations such as merge, split, rotate, page organization, image/PDF basics, passwords, metadata, watermarking, and signing. Compared with full Stirling-PDF, ultra-lite omits OCR; Office/common-file conversion; PDF-to-Word/Presentation/XML/HTML/PDF-A; HTML/URL/EML/ebook/vector conversions; compression and repair backends; scan-image extraction; and other tools requiring LibreOffice, Python/OpenCV, Tesseract/OCRmyPDF, QPDF, Ghostscript/ImageMagick, WeasyPrint, Calibre, or related binaries. The deployed ultra-lite JAR reports `activeSecurity=false` and ignores login settings because the authentication module is not included, so any client with LAN or approved Tailscale subnet-route access can use it. It binds only to `192.168.10.12`, has no public Caddy/cloudflared route, uses the dedicated `stirling_pdf_internal` network, drops all capabilities before adding only `SETUID` and `SETGID` for the entrypoint's root-to-`stirlingpdfuser` transition, uses `no-new-privileges`, and has no Docker socket or privileged mode. A two-input PDF merge was verified end to end. The generic backup captures `compose.yml`; generated settings under `configs/` are archived as `bind_mounts/stirling_pdf_configs/` and required by restore verification. |
 | Czkawka | `http://192.168.10.12:8084/` | `8084` (container `5800`) | Docker Compose | `/home/patryk/docker/czkawka/compose.yml`, `/home/patryk/docker/czkawka/config` | Yes | Occasional/ad-hoc duplicate-file finder, pinned to `jlesage/czkawka:v26.07.2`, bound only to the miniPC LAN IP with no Caddy route, `fedora.lan` alias, DNS-01 TLS hostname, or Cloudflare tunnel. `/home/patryk` is mounted as `/storage:ro`, so the container cannot modify host files. Not monitored by Uptime Kuma and intentionally excluded from the Daily Homelab Report. |
 | FileBrowser Quantum | `http://192.168.10.12:8085/`; `http://100.118.164.107:8085/` (Tailscale) | `8085` (container `80`) | Docker Compose | `/home/patryk/docker/filebrowser/compose.yml`, protected `/home/patryk/docker/filebrowser/.env`, `/home/patryk/docker/filebrowser/data` | Yes | Pinned to `gtstef/filebrowser:1.5.0-stable`; the sole intentionally full read-write service for `/home/patryk`, including administrative paths and secrets, as an informed LAN + Tailscale-only choice (not public Internet exposure). It runs as `filebrowser` (1000:1000), drops all capabilities, and uses `no-new-privileges`. Its private `Home` source disables public/anonymous shares; password sign-in is enabled, sign-up is disabled, and 2FA is available but not enforced. |
 | RSS-Bridge | `http://192.168.10.12:8086/` | `8086` (container `80`) | Docker Compose | `/home/patryk/docker/rss-bridge/compose.yml`, `/home/patryk/docker/rss-bridge/config` | Yes | Pinned to `rssbridge/rss-bridge:sha-fd17579` (matched the `latest` digest at setup time). Generates RSS/Atom/JSON feeds for sites without native feeds; feed URLs are manually added as sources inside FreshRSS by the operator — no backend integration between the two services. `cap_drop: ALL` plus a minimal `cap_add` (`CHOWN`, `SETUID`, `SETGID`, `NET_BIND_SERVICE`, `DAC_OVERRIDE`) and `no-new-privileges` are applied; the image has no PUID/GID support and its nginx/php-fpm masters must start as root before dropping to `www-data`, so the container cannot run fully unprivileged. All bundled bridges are enabled (`enabled_bridges[] = *`); authentication remains disabled, consistent with the LAN-only, unauthenticated trust model already used for CyberChef. Bound only to the miniPC LAN IP, no Caddy route, `fedora.lan` alias, or public exposure. |
@@ -483,7 +485,7 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 
 ## Docker compose folders
 
-Current expected Docker status: `27/27 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
+Current expected Docker status: `28/28 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
 
 Known Compose files under `/home/patryk/docker`:
 
@@ -497,6 +499,7 @@ Known Compose files under `/home/patryk/docker`:
 - `/home/patryk/docker/changedetection/compose.yml`
 - `/home/patryk/docker/netalertx/compose.yml`
 - `/home/patryk/docker/cyberchef/docker-compose.yml`
+- `/home/patryk/docker/stirling-pdf/compose.yml`
 - `/home/patryk/docker/czkawka/compose.yml`
 - `/home/patryk/docker/filebrowser/compose.yml`
 - `/home/patryk/docker/rss-bridge/compose.yml`
@@ -522,6 +525,8 @@ Known service folders under `/home/patryk/docker`:
 - `/home/patryk/docker/netalertx`
   - `/home/patryk/docker/netalertx/data` (application config and SQLite database)
 - `/home/patryk/docker/cyberchef`
+- `/home/patryk/docker/stirling-pdf`
+  - `/home/patryk/docker/stirling-pdf/configs` (generated application settings and persistent state; backed up)
 - `/home/patryk/docker/czkawka`
   - `/home/patryk/docker/czkawka/config` (Czkawka persistent GUI configuration, state, and logs; `/home/patryk` is mounted in the container only as `/storage:ro`)
 - `/home/patryk/docker/filebrowser`
@@ -615,6 +620,11 @@ Current backup includes:
 - RSS-Bridge:
   - `/home/patryk/docker/rss-bridge/compose.yml` is covered by the generic Compose-file collection.
   - `/home/patryk/docker/rss-bridge/config` (the `config.ini.php` with enabled bridges and settings) is explicitly archived under `bind_mounts/rss_bridge_config/`; the image has no separate internal data volume.
+- Stirling-PDF ultra-lite:
+  - `/home/patryk/docker/stirling-pdf/compose.yml` is covered by the generic Compose-file collection.
+  - `/home/patryk/docker/stirling-pdf/configs` is explicitly archived under `bind_mounts/stirling_pdf_configs/`; it contains generated settings and any future persistent application state.
+  - There is no `.env` because this ultra-lite build has no authentication module and therefore no deployed credentials or secrets.
+  - Restore verification requires both the Compose file and generated `settings.yml`.
 - ConvertX:
   - `/home/patryk/docker/convertx/compose.yml` and protected mode-600 `.env` are covered by the generic Compose-file/`.env` collection. The account email/password values retained in `.env` are superseded historical first-run records only; current login state is stored in SQLite and managed in-app.
   - `/home/patryk/docker/convertx/CREDENTIALS.md` is explicitly archived with the Compose definition and contains no credentials.
@@ -953,7 +963,7 @@ docker stats --no-stream
 Check listening ports:
 
 ```bash
-ss -tulpn | grep -E ':(22|53|80|443|3001|3002|5000|5678|7575|8010|8082|8083|8181|3389|9090)\b' || true
+ss -tulpn | grep -E ':(22|53|80|443|3001|3002|5000|5678|7575|8010|8082|8083|8095|8181|3389|9090)\b' || true
 ```
 
 Check NAS mount:
