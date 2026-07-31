@@ -94,7 +94,6 @@ less ~/docker/HOMELAB.md
 | Service | Container | Container port | Published host port / direct URL | `fedora.lan` alias |
 |---|---|---:|---|---|
 | Homarr | `homarr` | 7575 | `192.168.10.12:7575` / `http://192.168.10.12:7575/` | `http://fedora.lan/`; `https://m.patrykw.uk/` |
-| Kroki | `kroki` | 8000 | `192.168.10.12:8000` / `http://192.168.10.12:8000/` | None; LAN/Tailscale-only, not proxied by Caddy |
 | SnapOtter | `snapotter` | 1349 | `192.168.10.12:1349` / `http://192.168.10.12:1349/` | `https://snapotter.patrykw.uk/`; internal DNS-01 TLS, LAN/Tailscale-only |
 | Uptime Kuma | `uptime-kuma` | 3001 | `192.168.10.12:3001` / `http://192.168.10.12:3001/` | None; no reliable base-path support; `https://kuma.patrykw.uk/` |
 | AdGuard Home UI | `adguardhome` | 3000 | `192.168.10.12:3002` / `http://192.168.10.12:3002/` | None; no reliable base-path support; `https://adguard.patrykw.uk/` |
@@ -152,7 +151,6 @@ Wake-on: g
 |---|---|---:|---|---|---|---|
 | Homarr | Primary `http://192.168.10.12:7575/`; Caddy LAN-IP fallback `http://192.168.10.12/`; alias `http://fedora.lan/`; DNS-01 TLS alias `https://m.patrykw.uk/` | Direct `7575`; Caddy `80`; Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/homarr/compose.yml`, `/home/patryk/docker/homarr/data` | Yes | Homarr `v1.71.0` is bound only to `192.168.10.12:7575`. Caddy routes the LAN-IP fallback and `fedora.lan` root to the same Homarr backend. `https://m.patrykw.uk/` is proxied by the separate internal-only DNS-01 TLS Caddy instance. No Docker socket is mounted. |
 | Glances | Internal-only `http://glances:61208` from Homarr | No host port | Docker Compose | `/home/patryk/docker/glances/compose.yml` | Yes | Fedora miniPC CPU/RAM backend for Homarr. Image `nicolargo/glances:4.5.5`; connected only to `homarr_default`, no Docker socket, host mount, privileged mode, or runtime cache. |
-| Kroki | `http://192.168.10.12:8000/` | `8000` | Docker Compose | `/home/patryk/docker/kroki/compose.yml` | Yes — generic Compose-file archive | Stateless diagram-rendering service (PlantUML/GraphViz/ditaa/etc.) for homelab documentation; core server only (no Mermaid/BPMN/Excalidraw/diagrams.net companions); LAN/Tailscale-only; confirmed running v0.31.2+ (patched against the July 2026 TikZ arbitrary file read and Mermaid SSRF advisories). |
 | SnapOtter | `http://192.168.10.12:1349/`; internal DNS-01 TLS alias `https://snapotter.patrykw.uk/` | `1349`; Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/snapotter/compose.yml` | Yes — compose.yml + data + pgdata; redisdata intentionally excluded as non-essential cache | Self-hosted file/image/video/audio/PDF toolkit with local AI tools (background removal, upscaling, restoration, OCR, etc. — CPU-only, no external LLM/Ollama dependency). The HTTPS route is bound only to the miniPC LAN IP, so it is LAN/Tailscale-only with no public proxy. The default admin password is still flagged for change in the application and must be changed manually before treating this alias as safely complete. |
 | FreshRSS | `http://192.168.10.12:8181` | `8181` | Docker Compose | `/home/patryk/docker/freshrss/compose.yml` | Yes | Data volumes: `freshrss_freshrss_data`, `freshrss_freshrss_extensions`. Working LAN browser URL is `http://192.168.10.12:8181/`. Working LAN mobile/API URL is `http://192.168.10.12:8181/api/greader.php`. Tailscale API URL `http://100.118.164.107:8181/api/greader.php` works only through Tailscale and should not be used for normal home LAN refresh. Refresh mechanism: in-container cron via `CRON_MIN=*/20`; default FreshRSS feed TTL is 1800 seconds / 30 minutes. Updates may still arrive in batches depending on feed cache state, upstream errors, or feed-specific failures. `IEEE Spectrum` (`https://spectrum.ieee.org/feeds/feed.rss`) should be reviewed separately if re-added. `/freshrss` is not currently reverse-proxied and should not be used unless a reverse-proxy route is added later. |
 | AdGuard Home | `http://192.168.10.12:3002`; DNS-01 TLS alias `https://adguard.patrykw.uk/` | `3002`, DNS `53`; Caddy DNS-01 `443` | Docker Compose | `/home/patryk/docker/adguardhome/compose.yml` | Yes | DNS bound to `100.118.164.107:53` and `192.168.10.12:53`. Router DHCP currently hands out `192.168.10.12` as primary DNS and `192.168.10.13` as secondary DNS; clients may use both, so the two AdGuard instances should stay mirrored. `https://adguard.patrykw.uk/` is proxied by the separate internal-only DNS-01 TLS Caddy instance. |
@@ -515,7 +513,6 @@ Known Compose files under `/home/patryk/docker`:
 - `/home/patryk/docker/freshrss/compose.yml`
 - `/home/patryk/docker/homarr/compose.yml`
 - `/home/patryk/docker/glances/compose.yml`
-- `/home/patryk/docker/kroki/compose.yml`
 - `/home/patryk/docker/snapotter/compose.yml`
 - `/home/patryk/docker/diun/compose.yml`
 - `/home/patryk/docker/forgejo/compose.yml`
@@ -544,7 +541,6 @@ Known service folders under `/home/patryk/docker`:
 - `/home/patryk/docker/homarr`
   - `/home/patryk/docker/homarr/data` (SQLite database, Redis state, trusted certificates, uploaded/local media, board/app/item/widget/integration and authentication data)
 - `/home/patryk/docker/glances` (pinned Compose only; no persistent metrics cache)
-- `/home/patryk/docker/kroki` (pinned Compose only; no data subfolder, stateless)
 - `/home/patryk/docker/snapotter`
   - `/home/patryk/docker/snapotter/data` (user files and local AI runtime data; backed up)
   - `/home/patryk/docker/snapotter/pgdata` (PostgreSQL 17 database; backed up)
@@ -1192,4 +1188,4 @@ Detailed change history is tracked in this host's Git repository (see the Homela
 - After Fedora/system updates and after any reboot: verify AdGuard/DNS, Docker service health, SSH access, and sleep/suspend/hibernate masks again.
 - Do not assume anti-sleep protection survived a kernel or system update until the masks and related settings are checked again.
 
-Already implemented and active: changedetection.io, Wallos, Kroki, SnapOtter, Paperless-ngx, Pushover backup/homelab alerts, Daily homelab report, Reboot-needed notifier, Speedtest Tracker, DIUN, Anti-sleep monitoring, and NAS mount alert.
+Already implemented and active: changedetection.io, Wallos, SnapOtter, Paperless-ngx, Pushover backup/homelab alerts, Daily homelab report, Reboot-needed notifier, Speedtest Tracker, DIUN, Anti-sleep monitoring, and NAS mount alert.
