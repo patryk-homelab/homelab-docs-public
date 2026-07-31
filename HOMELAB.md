@@ -54,7 +54,7 @@ less ~/docker/HOMELAB.md
 - `192.168.10.12` is the Fedora miniPC running local AdGuard Home DNS.
 - `192.168.10.13` is the Mac mini running the secondary/fallback AdGuard Home DNS instance.
 - Goal in normal mode: keep ad blocking available through mirrored AdGuard instances while preserving local LAN visibility on the primary miniPC resolver when clients use it.
-- Important tradeoff: some clients may use both DHCP DNS servers in parallel instead of treating the second entry as strict failover, so both AdGuard instances should stay mirrored closely enough to avoid inconsistent filtering results.
+- Important tradeoff: some clients may use both DHCP DNS servers in parallel instead of treating the second entry as strict failover.  DNS rewrites are therefore mirrored automatically every 15 minutes, one-way from Fedora (`192.168.10.12`) to the Mac mini (`192.168.10.13`); filter lists and upstream behavior remain a separate manual-parity concern.
 - DNS maintenance mode: during Fedora/system update or reboot maintenance, the user may temporarily add a public resolver such as `1.1.1.1` as alternate DNS on the router.
 - That temporary maintenance-mode DNS fallback is intentional and is not automatically a misconfiguration.
 - Purpose of maintenance mode: keep internet access working if the miniPC or AdGuard Home is unavailable during update or reboot.
@@ -66,9 +66,9 @@ less ~/docker/HOMELAB.md
 ## AdGuard Home DNS behavior
 
 - Local AdGuard Home runs on miniPC: `http://192.168.10.12:3002`, and fallback at `http://100.118.164.107:3002` over Tailscale.
-- Local API automation credentials for Codex/Claude are stored only in `/home/patryk/.config/adguard-api.env` (mode `600`).  This file contains this host's AdGuard Home API endpoint and admin credentials; it is outside the explicit source allowlists for both the public GitHub `HOMELAB.md` push and the Forgejo `homelab-repo` snapshot, so it is excluded from those Git pushes.  Never put its values in documentation, prompts, or logs.
+- Local API credentials used by existing Codex/Claude work remain in `/home/patryk/.config/adguard-api.env` (mode `600`).  The DNS rewrite mirror keeps its paired Fedora and Mac mini endpoint/admin values only in `/home/patryk/scripts/adguard-mirror-sync.env` (mode `600`), which is private-backup-only and excluded from the public GitHub and Forgejo snapshots.  Never put values from either file in documentation, prompts, or logs.
 - Router DHCP hands out `192.168.10.12` as primary DNS and `192.168.10.13` as secondary DNS.
-- Because many clients may query both DHCP DNS servers, the Fedora and Mac mini AdGuard instances should remain mirrored for filters and upstream behavior where practical.
+- Because many clients may query both DHCP DNS servers, `/home/patryk/scripts/adguard-mirror-sync.sh` automatically keeps DNS rewrites mirrored one-way from Fedora to the Mac mini.  It uses `GET /control/rewrite/list`, `POST /control/rewrite/add`, and `PUT /control/rewrite/update`; it never writes to Fedora or automatically deletes a Mac-only rewrite.  Such orphan entries are flagged for manual review.  Filters and upstream behavior should still be kept aligned manually where practical.
 - When clients use DNS `192.168.10.12` through DHCP, AdGuard Home on the miniPC should see LAN clients as `192.168.10.x`.
 - `100.x.x.x` addresses in AdGuard Home are most likely Tailscale clients.
 - `172.20.0.1` is most likely Docker gateway or Docker-network traffic, not an unknown LAN device.
