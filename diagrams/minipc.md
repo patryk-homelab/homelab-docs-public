@@ -41,4 +41,7 @@ flowchart TB
     external_synology_dsm["Synology DSM<br/>https://192.168.10.92:5001 (5001)<br/><sub>Synology DSM</sub>"]
     external_tailscale_admin_console["Tailscale Admin Console<br/>https://login.tailscale.com/admin/machines (HTTPS)<br/><sub>Tailscale account</sub>"]
   end
+  subgraph uncategorized["Uncategorized"]
+    uncategorized_diagrampipelinetest["DiagramPipelineTest<br/>http://192.168.10.12:9999 (9999)<br/><sub>/home/patryk/docker/diagram-pipeline-test/compose.yml</sub>"]
+  end
 ```
