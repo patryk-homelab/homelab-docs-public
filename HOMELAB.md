@@ -66,6 +66,7 @@ less ~/docker/HOMELAB.md
 ## AdGuard Home DNS behavior
 
 - Local AdGuard Home runs on miniPC: `http://192.168.10.12:3002`, and fallback at `http://100.118.164.107:3002` over Tailscale.
+- Local API automation credentials for Codex/Claude are stored only in `/home/patryk/.config/adguard-api.env` (mode `600`).  This file contains this host's AdGuard Home API endpoint and admin credentials; it is outside the explicit source allowlists for both the public GitHub `HOMELAB.md` push and the Forgejo `homelab-repo` snapshot, so it is excluded from those Git pushes.  Never put its values in documentation, prompts, or logs.
 - Router DHCP hands out `192.168.10.12` as primary DNS and `192.168.10.13` as secondary DNS.
 - Because many clients may query both DHCP DNS servers, the Fedora and Mac mini AdGuard instances should remain mirrored for filters and upstream behavior where practical.
 - When clients use DNS `192.168.10.12` through DHCP, AdGuard Home on the miniPC should see LAN clients as `192.168.10.x`.
