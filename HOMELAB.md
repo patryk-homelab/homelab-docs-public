@@ -177,7 +177,6 @@ Wake-on: g
 | Forgejo | `http://192.168.10.12:3300/` (HTTP web UI); Git-over-SSH `192.168.10.12:2222` | `3300`, SSH `2222` | Docker Compose | `/home/patryk/docker/forgejo/compose.yml`, `/home/patryk/docker/forgejo/data` | Yes | Self-hosted Git server (`codeberg.org/forgejo/forgejo:16.0.1`), SQLite backend, new-user registration disabled (`FORGEJO__service__DISABLE_REGISTRATION=true`). Hosts `homelab-repo`'s one-way snapshot push over SSH via a dedicated deploy key. Reachable via both LAN and Tailscale by default, per the FedoraWorkstation firewalld zone's stock behavior; no restrictive rich rule is configured for it, unlike NetAlertX. See Infrastructure services and Backup coverage. |
 | Synology DSM | `https://192.168.10.92:5001` | `5001` | External NAS | Synology DSM | No | Not hosted on miniPC. NAS stores backup copies. |
 | Tailscale Admin Console | `https://login.tailscale.com/admin/machines` | HTTPS | External SaaS | Tailscale account | No | Useful for tailnet administration, not hosted locally. |
-| DiagramPipelineTest | `http://192.168.10.12:9999` | `9999` | Docker Compose | `/home/patryk/docker/diagram-pipeline-test/compose.yml` | No | TEMPORARY row added to verify the miniPC diagram push pipeline end to end; will be removed immediately after verification. |
 
 ## Homarr dashboard
 
