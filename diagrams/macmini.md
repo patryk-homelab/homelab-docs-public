@@ -13,6 +13,7 @@ flowchart TD
     homelab_docs_public_github_push["Homelab-docs-public GitHub Push<br/>(no exposed port)<br/>/Users/patrykmac/homelab-docs-public-github"]
     homelab_repo_git_snapshot["Homelab-repo Git Snapshot<br/>(no exposed port)<br/>/Users/patrykmac/homelab-repo"]
     icloud_document_exchange["iCloud Document Exchange<br/>(no exposed port)<br/>/Users/patrykmac/Library/Mobile Documents/com~apple~CloudDocs/Desktop/HOMELAB"]
+    mac_mini_service_diagram["Mac mini Service Diagram<br/>192.168.10.13<br/>/Users/patrykmac/homelab/backup/generate-push-macmini-diagram.sh"]
   end
   subgraph discord_bot["Discord Bot"]
     klefedroniarz_discord_bot["Klefedroniarz Discord Bot<br/>(no exposed port)<br/>/Users/patrykmac/homelab/discord-bot"]
