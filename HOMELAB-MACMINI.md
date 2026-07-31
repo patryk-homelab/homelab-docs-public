@@ -99,6 +99,11 @@ Verified operator state:
   - primary DNS remains the Fedora miniPC AdGuard at `192.168.10.12`
 - Configuration policy:
   - both AdGuard configurations should remain mirrored because clients may use either server
+- Local API access for Codex/Claude automation:
+  - Credentials file: `/Users/patrykmac/.config/adguard-api.env` (permission mode `600`, owner `patrykmac` read/write only)
+  - Purpose: lets Codex/Claude sessions on this host query and modify AdGuard Home DNS rewrites directly via the control API instead of being blocked on auth or requiring manual UI steps
+  - Contains `ADGUARD_URL`, `ADGUARD_USER`, `ADGUARD_PASSWORD` as plain `KEY=value` lines; not tracked in any git repository and outside the scope of the homelab-repo allowlist and the public-GitHub single-file watch path, so it is never copied, committed, or pushed by either pipeline
+  - Auth method in use: HTTP Basic Auth directly against the control API (no session cookie step needed)
 
 ## MeTube
 
