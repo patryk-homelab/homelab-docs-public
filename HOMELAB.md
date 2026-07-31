@@ -751,6 +751,13 @@ Current backup includes:
   - `/home/patryk/.config/systemd/user/homelab-docs-public-github-push.timer`
   - `/home/patryk/.ssh/github-homelab-docs-public-deploy` and its `.pub`, archived under `ssh_keys/` with `cp -a` (mode 600 preserved, contents never printed), mirroring the Forgejo deploy key above
   - The `/home/patryk/homelab-docs-public-github` working copy is intentionally not archived: it holds no unique state, only a copy of `HOMELAB.md` (already backed up under `docs/`) plus commit history that also exists on GitHub, and it is reconstructed with `git clone` plus one push.
+- miniPC services diagram push:
+  - `/home/patryk/scripts/generate-push-minipc-diagram.sh`
+  - `/home/patryk/.config/systemd/user/minipc-diagram-push.service`
+  - `/home/patryk/.config/systemd/user/minipc-diagram-push.path`
+  - `/home/patryk/.config/systemd/user/minipc-diagram-push.timer`
+  - No separate deploy key: this script reuses the same `github-homelab-docs-public` deploy key already archived under the Public GitHub docs push entry above.
+  - The `/home/patryk/homelab-docs-public-github` working copy still needs no dedicated backup coverage for the same reason stated above: `diagrams/minipc.md` is generated fresh from `HOMELAB.md` (itself already backed up under `docs/`) on every run, and the working copy's commit history also exists on GitHub, so it remains fully reconstructible via `git clone` plus one push.
 - Mac mini iCloud documentation delivery:
   - `/home/patryk/scripts/push-homelab-macmini-icloud.sh`
   - `/home/patryk/.config/systemd/user/homelab-macmini-icloud-push.service`
