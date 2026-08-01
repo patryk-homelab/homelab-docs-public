@@ -532,13 +532,14 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 
 ## Docker compose folders
 
-Current expected Docker status: `34/34 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
+Current expected Docker status: `36/36 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
 
 Known Compose files under `/home/patryk/docker`:
 
 - `/home/patryk/docker/adguardhome/compose.yml`
 - `/home/patryk/docker/freshrss/compose.yml`
 - `/home/patryk/docker/homarr/compose.yml`
+- `/home/patryk/docker/mailserver/compose.yml`
 - `/home/patryk/docker/glances/compose.yml`
 - `/home/patryk/docker/snapotter/compose.yml`
 - `/home/patryk/docker/diun/compose.yml`
@@ -567,6 +568,12 @@ Known service folders under `/home/patryk/docker`:
 - `/home/patryk/docker/freshrss`
 - `/home/patryk/docker/homarr`
   - `/home/patryk/docker/homarr/data` (SQLite database, Redis state, trusted certificates, uploaded/local media, board/app/item/widget/integration and authentication data)
+- `/home/patryk/docker/mailserver`
+  - `/home/patryk/docker/mailserver/mail-data` (Maildir mailbox data; irreplaceable and explicitly backed up)
+  - `/home/patryk/docker/mailserver/config` (account hashes, DKIM private/public material, and local TLS keys; sensitive private-backup-only data)
+  - `/home/patryk/docker/mailserver/mail-state` (Dovecot/Postfix/Rspamd runtime state; backed up)
+  - `/home/patryk/docker/mailserver/mail-logs` (runtime logs; not recovery-critical)
+  - `/home/patryk/docker/mailserver/snappymail-data` (SnappyMail domain configuration, user preferences, and application state; backed up)
 - `/home/patryk/docker/glances` (pinned Compose only; no persistent metrics cache)
 - `/home/patryk/docker/snapotter`
   - `/home/patryk/docker/snapotter/data` (user files and local AI runtime data; backed up)
