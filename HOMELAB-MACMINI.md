@@ -368,6 +368,7 @@ launchctl bootstrap gui/$(id -u) /Users/patrykmac/Library/LaunchAgents/com.patry
 ## FileBrowser Quantum
 
 - Status: installed natively on macOS; Docker Desktop is not installed or used.
+- Installation timing: the binary, LaunchAgent plist, and wrapper timestamps place the installation on `2026-07-26` (about `21:37`–`21:38` local time).
 - Release: `v1.5.0-stable` (official `darwin-arm64-filebrowser` asset, SHA-256 verified as `49f8db59ff5edb15245ad63a80f47ac4ff8fc05331e91e6b15ee97fa872ea4a7`; quarantine cleared and ad-hoc signed).
 - Web UI: `http://192.168.10.13:8085/`.
 - Bind policy: listens only on `192.168.10.13:8085` via `server.listen`; it is deliberately not bound to `0.0.0.0`, localhost, or a Tailscale address. It remains reachable remotely through this Mac mini's advertised `192.168.10.0/24` Tailscale subnet route.
