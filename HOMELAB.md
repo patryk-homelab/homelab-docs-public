@@ -514,14 +514,13 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
 
 ## Docker compose folders
 
-Current expected Docker status: `36/36 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
+Current expected Docker status: `34/34 running` (includes Docker Compose-managed containers and the plain-Docker `uptime-kuma` container).
 
 Known Compose files under `/home/patryk/docker`:
 
 - `/home/patryk/docker/adguardhome/compose.yml`
 - `/home/patryk/docker/freshrss/compose.yml`
 - `/home/patryk/docker/homarr/compose.yml`
-- `/home/patryk/docker/mailserver/compose.yml`
 - `/home/patryk/docker/glances/compose.yml`
 - `/home/patryk/docker/snapotter/compose.yml`
 - `/home/patryk/docker/diun/compose.yml`
@@ -550,12 +549,6 @@ Known service folders under `/home/patryk/docker`:
 - `/home/patryk/docker/freshrss`
 - `/home/patryk/docker/homarr`
   - `/home/patryk/docker/homarr/data` (SQLite database, Redis state, trusted certificates, uploaded/local media, board/app/item/widget/integration and authentication data)
-- `/home/patryk/docker/mailserver`
-  - `/home/patryk/docker/mailserver/mail-data` (Maildir mailbox data; irreplaceable and explicitly backed up)
-  - `/home/patryk/docker/mailserver/config` (account hashes, DKIM private/public material, and local TLS keys; sensitive private-backup-only data)
-  - `/home/patryk/docker/mailserver/mail-state` (Dovecot/Postfix/Rspamd runtime state; backed up)
-  - `/home/patryk/docker/mailserver/mail-logs` (runtime logs; not recovery-critical)
-  - `/home/patryk/docker/mailserver/snappymail-data` (SnappyMail domain configuration, user preferences, and application state; backed up)
 - `/home/patryk/docker/glances` (pinned Compose only; no persistent metrics cache)
 - `/home/patryk/docker/snapotter`
   - `/home/patryk/docker/snapotter/data` (user files and local AI runtime data; backed up)
@@ -592,7 +585,7 @@ Known service folders under `/home/patryk/docker`:
   - `/home/patryk/docker/beszel/beszel_socket` (transient local agent IPC, intentionally not backed up)
 - `/home/patryk/docker/reverse-proxy`
 - `/home/patryk/docker/paperless`
-- `/home/patryk/docker/caddy` (`compose.yml`, `Caddyfile`, `Dockerfile`, `.env`; 15 internal `*.patrykw.uk` routes plus the exact-name `webmail.xdxd.uk` DNS-01 TLS site)
+- `/home/patryk/docker/caddy` (`compose.yml`, `Caddyfile`, `Dockerfile`, `.env`; 15 internal `*.patrykw.uk` routes)
 - `/home/patryk/docker/shlink`
   - `/home/patryk/docker/shlink/postgres-data` (PostgreSQL data; backed up through an online logical dump, not a blind live-file copy)
   - `/home/patryk/docker/shlink/.env` (mode 600; database password and no-role admin API key; never committed)
@@ -636,14 +629,6 @@ Current backup includes:
   - `/home/patryk/docker/glances/compose.yml` is explicitly archived; Glances has no recovery-critical runtime metrics cache.
 - Uptime Kuma bind-mounted data:
   - `/home/patryk/homelab/uptime-kuma/data`
-- Mail service recovery data (sensitive private-backup-only material):
-  - `/home/patryk/docker/mailserver/compose.yml`
-  - `/home/patryk/docker/mailserver/mail-data`, copied live as Maildir without stopping public SMTP; delivery uses atomic file creation/rename
-  - `/home/patryk/docker/mailserver/config`, including the account database, DKIM private/public files, and local TLS CA/leaf keys
-  - `/home/patryk/docker/mailserver/mail-state` and `/home/patryk/docker/mailserver/snappymail-data`
-  - archived as explicit trees below `bind_mounts/mailserver/`; `mail-logs` is excluded as non-recovery-critical runtime logging
-  - restore verification requires the mailbox `cur/new/tmp` directories, at least one stored message, a non-empty account database, DKIM private/public DNS files, TLS private key, and the `xdxd.uk` SnappyMail domain configuration
-
 - DIUN config and database:
   - `/home/patryk/docker/diun/diun.yml`
   - `/home/patryk/docker/diun/data`
