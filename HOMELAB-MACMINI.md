@@ -351,7 +351,7 @@ launchctl bootstrap gui/$(id -u) /Users/patrykmac/Library/LaunchAgents/com.patry
 - Homebrew formula/runtime version: `henrygd/beszel/beszel-agent` `0.18.7`.
 - Binary: `/opt/homebrew/bin/beszel-agent`; Homebrew service launcher: `/opt/homebrew/opt/beszel-agent/bin/beszel-agent-launcher`.
 - Private configuration: `/Users/patrykmac/.config/beszel/beszel-agent.env`, mode `600`, in a mode-`700` directory. It contains Hub-issued connection credentials and must never be printed, committed, or documented here.
-- RAM calculation: `MEM_CALC=htop` is set in the private agent environment so Beszel uses its htop-style memory calculation rather than the default total-minus-available figure. This is intended to exclude reclaimable file-backed cache from the reported RAM percentage/used value.
+- RAM calculation: `MEM_CALC=htop` requests Beszel's htop-style calculation, intended to exclude reclaimable file-backed cache. On this macOS agent, the verified post-restart value remained default-style, not `(anonymous + wired) / total`; its current dashboard RAM value still includes reclaimable file-backed cache. The status-agent figure below is the authoritative cache-excluding value.
 - Log: `/Users/patrykmac/.cache/beszel/beszel-agent.log` (transient).
 - Bind policy: listens only on `192.168.10.13:45876` through `LISTEN=192.168.10.13:45876`; it is deliberately not bound to `0.0.0.0`, localhost-only, or a Tailscale address.
 - Homebrew service: `beszel-agent` (launchd label `homebrew.mxcl.beszel-agent`), managed with `brew services restart beszel-agent`; it starts in the `patrykmac` user domain and restarts at login.
