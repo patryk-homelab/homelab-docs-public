@@ -654,6 +654,13 @@ Current backup includes:
   - `/home/patryk/docker/glances/compose.yml` is explicitly archived; Glances has no recovery-critical runtime metrics cache.
 - Uptime Kuma bind-mounted data:
   - `/home/patryk/homelab/uptime-kuma/data`
+- Mail service recovery data (sensitive private-backup-only material):
+  - `/home/patryk/docker/mailserver/compose.yml`
+  - `/home/patryk/docker/mailserver/mail-data`, copied live as Maildir without stopping public SMTP; delivery uses atomic file creation/rename
+  - `/home/patryk/docker/mailserver/config`, including the account database, DKIM private/public files, and local TLS CA/leaf keys
+  - `/home/patryk/docker/mailserver/mail-state` and `/home/patryk/docker/mailserver/snappymail-data`
+  - archived as explicit trees below `bind_mounts/mailserver/`; `mail-logs` is excluded as non-recovery-critical runtime logging
+  - restore verification requires the mailbox `cur/new/tmp` directories, at least one stored message, a non-empty account database, DKIM private/public DNS files, TLS private key, and the `xdxd.uk` SnappyMail domain configuration
 
 - DIUN config and database:
   - `/home/patryk/docker/diun/diun.yml`
