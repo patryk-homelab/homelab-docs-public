@@ -55,9 +55,6 @@ This file documents the current Mac mini backup/control homelab setup. It is doc
 - UpSnap web UI:
   - LAN URL: `http://192.168.10.13:8090`
   - Bound exclusively to `192.168.10.13:8090`; not available on localhost, 0.0.0.0, or Tailscale
-- PhotoDL (gallery-dl-server) web UI:
-  - LAN URL: `http://192.168.10.13:8092/gallery-dl`
-  - Bound exclusively to `192.168.10.13:8092`; not available on localhost, 0.0.0.0, or Tailscale
 
 ## Login and startup behavior
 
