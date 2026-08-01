@@ -1,6 +1,6 @@
 # Mac mini Homelab Inventory
 
-Last updated: 2026-08-01
+Last updated: 2026-08-02
 
 This file documents the current Mac mini backup/control homelab setup. It is documentation only and should stay conservative. The Mac mini is intentionally lightweight to preserve RAM and disk for local LLM/OpenLLM work.
 
@@ -216,19 +216,26 @@ PATH="/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:$PATH" \
 
 ## Fedora dashboard (Homarr)
 
-- Fedora Homepage has been retired. Homarr is now the Fedora miniPC dashboard.
-- Homarr includes only these Mac mini links:
-  - Uptime Kuma
-  - AdGuard Home
-  - MeTube
-- FileBrowser Quantum tile: requested as `Filebrowser - Mac` at `http://192.168.10.13:8085/`; the Homarr MCP connector was unavailable on this Mac mini during installation, so no app ID/dashboard item ID was created or recorded. When created through Homarr, it will auto-place in the first empty section and must be dragged manually into `Mac Mini`.
-- Homarr may also use the Mac mini's LAN-only Glances API as a data source for CPU/RAM metrics.
-- No Mac mini SSH, router, NAS, Homepage, Homarr, or Docker component is installed locally on this Mac mini; the dashboard entries are remote links only.
+- `AdGuard Home - Mac`
+  - URL: `http://192.168.10.13:3002`
+  - Health check: `http://192.168.10.13:3002`
+- `Filebrowser - Mac`
+  - URL: `http://192.168.10.13:8085/`
+  - Health check: `http://192.168.10.13:8085/`
+- `MeTube`
+  - URL: `http://192.168.10.13:8091`
+  - Health check: `http://192.168.10.13:8091`
+- `UpSnap - Mac`
+  - URL: `http://192.168.10.13:8090`
+  - Health check: `http://192.168.10.13:8090/api/health`
+- `Uptime Kuma - Mac`
+  - URL: `http://192.168.10.13:3003`
+  - Health check: `http://192.168.10.13:3003`
 
 ## LAN documentation viewer (decommissioned)
 
 - Status: stopped and persistently disabled on 2026-07-26. The former native LAN viewer is decommissioned in favor of the public GitHub mirror: `patryk-homelab/homelab-docs-public`.
-- The service has no active listener and must not be re-added as a Fedora Homarr tile.
+- The service has no active listener.
 - Retained for a future deliberate reactivation: implementation `/Users/patrykmac/homelab/homelab-docs/server.py`; LaunchAgent `com.patrykmac.homelab-docs` at `/Users/patrykmac/Library/LaunchAgents/com.patrykmac.homelab-docs.plist`; logs `/Users/patrykmac/homelab/homelab-docs/logs/launchd.stdout.log` and `/Users/patrykmac/homelab/homelab-docs/logs/launchd.stderr.log`.
 - The plist, application directory, server implementation, and logs remain on disk unchanged; only the loaded job was stopped and its user-domain LaunchAgent was disabled.
 - Backup coverage continues to include `server.py`, this document, and the retained LaunchAgent. Transient logs, bytecode cache, PID files, sockets, and temporary files remain excluded.
@@ -748,7 +755,7 @@ launchctl print gui/$(id -u)/com.patrykmac.homelab-macmini-icloud-push
 
 - Included: complete native Uptime Kuma application repository, `node_modules`, wrappers, maintenance documentation, and a consistent `kuma.db` snapshot; complete native MeTube repository, Python venv, UI dependencies, wrappers, cleanup script, minimal state, maintenance documentation, the `scripts/` directory (currently the `ensure-h264.sh` iPhone-playback safety net), and `ytdl-options.json`; complete native AdGuard Home binary, `AdGuardHome.yaml`, work directory, and root-owned `work/data`; the SSD-MINI monitor script, non-secret credential-field template, and LaunchAgent; the daily-report and RAM-sampler scripts plus their LaunchAgents; the fixed LAN documentation server implementation and LaunchAgent; native UpSnap binary, wrapper, canonical plist, and persistent `pb_data` state; FileBrowser Quantum binary, non-secret config, consistent embedded database copy, wrapper, canonical plist, and LaunchAgents plist; the homelab-repo Git snapshot repository (`/Users/patrykmac/homelab-repo`, including its `.git` history), its Forgejo deploy key, collector script, secret-scan gate library, allowlist, and watch-trigger generator script/plist; the homelab-docs-public-github push working copy (`/Users/patrykmac/homelab-docs-public-github`, including its `.git` history), its dedicated GitHub deploy key, push script, watch-path config, and watch-trigger generator script/plist; relevant LaunchAgents (including the UpSnap and FileBrowser symlink-resolved plists) and the AdGuard LaunchDaemon; this document; backup/restore scripts; Homebrew and system reconstruction metadata; and included, excluded, and missing-path manifests.
 - MeTube venv, Uptime Kuma `node_modules`, application repositories, and service binaries are deliberately included to speed recovery.
-- Excluded: all iCloud Drive content, MeTube downloaded media, and the MeTube security-scoped bookmark (`/Users/patrykmac/Library/Application Support/MeTubeCleanupLauncher/metube-folder.bookmark`), which is non-portable and must be recreated interactively after restore; the SSD-MINI monitor's private Pushover credential file, runtime state, lock, and logs; FileBrowser Quantum `secrets.env`, cache, and transient logs; LAN documentation viewer logs, bytecode cache, PID files, sockets, and temporary files; UpSnap transient logs (`/Users/patrykmac/homelab/upsnap/logs`), sockets, PID files, and temporary files; PhotoDL's local staging downloads folder (`/Users/patrykmac/homelab/photodl/downloads`), stuck-download monitor state, and transient logs; AI models/model weights and Ollama, MLX, Hugging Face, GGUF, and safetensors model files/caches; Time Machine data; Homebrew/package caches; temporary files; transient/rotated logs; crash reports; sockets, PID files, locks, and `.DS_Store`; staging data; and previous backup archives from staging.
+- Excluded: all iCloud Drive content, MeTube downloaded media, and the MeTube security-scoped bookmark (`/Users/patrykmac/Library/Application Support/MeTubeCleanupLauncher/metube-folder.bookmark`), which is non-portable and must be recreated interactively after restore; the SSD-MINI monitor's private Pushover credential file, runtime state, lock, and logs; FileBrowser Quantum `secrets.env`, cache, and transient logs; LAN documentation viewer logs, bytecode cache, PID files, sockets, and temporary files; UpSnap transient logs (`/Users/patrykmac/homelab/upsnap/logs`), sockets, PID files, and temporary files; AI models/model weights and Ollama, MLX, Hugging Face, GGUF, and safetensors model files/caches; Time Machine data; Homebrew/package caches; temporary files; transient/rotated logs; crash reports; sockets, PID files, locks, and `.DS_Store`; staging data; and previous backup archives from staging.
 
 ### Uptime Kuma consistency
 
