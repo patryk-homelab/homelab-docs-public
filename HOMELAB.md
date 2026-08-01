@@ -610,7 +610,7 @@ Known service folders under `/home/patryk/docker`:
   - `/home/patryk/docker/beszel/beszel_socket` (transient local agent IPC, intentionally not backed up)
 - `/home/patryk/docker/reverse-proxy`
 - `/home/patryk/docker/paperless`
-- `/home/patryk/docker/caddy` (`compose.yml`, `Caddyfile`, `Dockerfile`, `.env`; wildcard `*.patrykw.uk` DNS-01 TLS instance, 13 internal-only site blocks)
+- `/home/patryk/docker/caddy` (`compose.yml`, `Caddyfile`, `Dockerfile`, `.env`; 15 internal `*.patrykw.uk` routes plus the exact-name `webmail.xdxd.uk` DNS-01 TLS site)
 - `/home/patryk/docker/shlink`
   - `/home/patryk/docker/shlink/postgres-data` (PostgreSQL data; backed up through an online logical dump, not a blind live-file copy)
   - `/home/patryk/docker/shlink/.env` (mode 600; database password and no-role admin API key; never committed)
