@@ -269,9 +269,13 @@ Both instances have Pushover notifications configured.
 - Existing active monitors (local/misc):
   - FreshRSS
   - Homelab Backup
+  - Mailserver - SMTP (`192.168.10.12:25`, TCP)
   - NAS Mount
   - NAS Ping
+  - SnappyMail Webmail (`https://webmail.xdxd.uk/`, HTTP)
   - Tailscale MiniPC
+
+Both mail monitors run every 60 seconds, retry every 20 seconds up to two times, and use the active default `MiniPC Kuma` Pushover notification. The SMTP monitor verifies the local public listener; it does not replace an external probe of router/NAT reachability.
 
 ### Omitted monitor
 - **miniPC Cockpit**: The "miniPC Cockpit" monitor is intentionally omitted. The Fedora Web Console / Cockpit service itself remains installed, active, and accessible at https://192.168.10.12:9090/.
