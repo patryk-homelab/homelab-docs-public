@@ -96,6 +96,8 @@ less ~/docker/HOMELAB.md
 |---|---|---:|---|---|
 | Homarr | `homarr` | 7575 | `192.168.10.12:7575` / `http://192.168.10.12:7575/` | `http://fedora.lan/`; `https://m.patrykw.uk/` |
 | SnapOtter | `snapotter` | 1349 | `192.168.10.12:1349` / `http://192.168.10.12:1349/` | `https://snapotter.patrykw.uk/`; internal DNS-01 TLS, LAN/Tailscale-only |
+| docker-mailserver | `mailserver` | SMTP `25`; submission `587`; IMAPS `993` | `0.0.0.0:25` (public SMTP receive); `192.168.10.12:587`; `192.168.10.12:993` | None; `587/993` remain LAN/Tailscale-only |
+| SnappyMail | `snappymail` | 8888 | `192.168.10.12:8089` / Caddy-only browser URL `https://webmail.xdxd.uk/` | Internal DNS-01 TLS; LAN/Tailscale-only |
 | Uptime Kuma | `uptime-kuma` | 3001 | `192.168.10.12:3001` / `http://192.168.10.12:3001/` | None; no reliable base-path support; `https://kuma.patrykw.uk/` |
 | AdGuard Home UI | `adguardhome` | 3000 | `192.168.10.12:3002` / `http://192.168.10.12:3002/` | None; no reliable base-path support; `https://adguard.patrykw.uk/` |
 | AdGuard DNS | `adguardhome` | 53 TCP/UDP | `192.168.10.12:53` | Provides the `fedora.lan` rewrite |
@@ -116,7 +118,7 @@ less ~/docker/HOMELAB.md
 | UpSnap | `upsnap` | 8090 | `http://192.168.10.12:8090/` | None; `https://upsnap.patrykw.uk/` |
 | Beszel | `beszel`, `beszel-agent` | Hub 8090; local agent Unix socket | `192.168.10.12:8091` / `http://192.168.10.12:8091/` | `https://beszel.patrykw.uk/`; internal DNS-01 TLS, LAN/Tailscale-only |
 | Caddy reverse proxy | `reverse-proxy` | 80 | `192.168.10.12:80` / `http://192.168.10.12/` (Homarr fallback) | Homarr, Paperless |
-| Caddy (DNS-01 TLS) | `caddy` | 443 | `192.168.10.12:443` / 15 host routes under one wildcard cert `*.patrykw.uk` (see Web services / dashboards) | None; separate Caddy instance |
+| Caddy (DNS-01 TLS) | `caddy` | 443 | `192.168.10.12:443` / 15 wildcard routes under `*.patrykw.uk` plus `webmail.xdxd.uk` with its own certificate | None; separate Caddy instance |
 
 Containers without a published host port are internal-only dependencies and have no direct LAN URL: `paperless-db` (PostgreSQL 5432), `paperless-broker-1` (Redis 6379), and `diun`.
 
