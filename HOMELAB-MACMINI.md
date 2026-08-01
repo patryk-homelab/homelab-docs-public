@@ -344,59 +344,6 @@ launchctl bootout gui/$(id -u) /Users/patrykmac/Library/LaunchAgents/com.patrykm
 launchctl bootstrap gui/$(id -u) /Users/patrykmac/Library/LaunchAgents/com.patrykmac.upsnap.plist
 ```
 
-## PhotoDL (gallery-dl-server)
-
-- Status: installed natively via pip + a dedicated Python venv, not Docker.
-- Purpose: web UI for [`gallery-dl`](https://github.com/mikf/gallery-dl) (downloads images/photo galleries from Instagram, Twitter/X, Pinterest, Reddit, and hundreds of other sites) via [`gallery-dl-server`](https://github.com/qx6ghqkz/gallery-dl-server), with optional `yt-dlp` support for video. Each finished download is imported directly into Photos.app (iCloud Photos), not left as plain files in an iCloud Drive folder.
-- Installed versions: `gallery-dl-server` `0.8.1`, `gallery-dl` `1.32.9`, `yt-dlp` `2026.7.4`. Python venv built with Homebrew `python@3.13` (`3.13.14`).
-- Web UI: `http://192.168.10.13:8092/gallery-dl`
-- Bind policy:
-  - Listens **only** on `192.168.10.13:8092` (LAN IP, explicit `--host`/`--port` flags to `gallery_dl_server`).
-  - Deliberately **not** bound to `127.0.0.1`, `0.0.0.0`, or the Tailscale address.
-  - Not proxied by Caddy and has no public DNS/`patrykw.uk` entry; LAN + Tailscale subnet route only, by explicit decision.
-  - `gallery-dl-server` has no built-in authentication. This is an accepted risk specific to the LAN/Tailscale-only exposure above, the same risk model already used for UpSnap.
-- Paths:
-  - Python venv: `/Users/patrykmac/homelab/photodl/venv`
-  - Local staging directory for finished downloads: `/Users/patrykmac/homelab/photodl/downloads` (not inside iCloud Drive; files are imported into Photos.app and deleted from here, not kept as a permanent library)
-  - Scripts: `/Users/patrykmac/homelab/photodl/scripts`
-  - Logs (transient, excluded from backup): `/Users/patrykmac/homelab/photodl/logs`
-  - Launch wrapper: `/Users/patrykmac/homelab/photodl/start-photodl.sh`
-  - Canonical LaunchAgent plist: `/Users/patrykmac/Library/LaunchAgents/com.patrykmac.photodl.plist`
-- Wrapper environment: exports the Homebrew PATH so `ffmpeg` (`/opt/homebrew/bin/ffmpeg`) is found, mirroring MeTube's `start-metube.sh`; invokes `python -m gallery_dl_server --host 192.168.10.13 --port 8092 --log-dir /Users/patrykmac/homelab/photodl/logs`.
-- LaunchAgent: label `com.patrykmac.photodl`, plist directly at `/Users/patrykmac/Library/LaunchAgents/com.patrykmac.photodl.plist` (MeTube-style single location, no separate canonical + symlink); `RunAtLoad` and `KeepAlive` enabled.
-- gallery-dl configuration file: standard native location `~/.config/gallery-dl/config.json` (i.e. `/Users/patrykmac/.config/gallery-dl/config.json`). Sets `extractor.base-directory` to the staging directory above and `downloader.ytdl.enabled: true` for optional yt-dlp video support.
-- Postprocessor/import behavior:
-  - The config registers a gallery-dl `exec` postprocessor with `"event": "after"` (runs once per file, after it has been moved to its final path in the staging directory), invoking `/Users/patrykmac/homelab/photodl/scripts/import-to-photos.sh <finished-file-path>` — the conceptual equivalent of MeTube's `ensure-h264.sh` `Exec` postprocessor, but for importing into Photos instead of re-encoding.
-  - `import-to-photos.sh`, mode `700`, invoked as this `exec` postprocessor: verifies the argument is an existing regular file located inside the staging directory; runs `osascript` to tell Photos.app to `import` the file with `skip check duplicates yes`; checks both the actual `osascript` exit status and its output (parses the returned imported-item count rather than trusting exit `0` alone); only deletes the staged file after a *confirmed* successful import, following the same verify-before-delete discipline used elsewhere on this host (e.g. the SSD-MINI monitor never marks itself healthy without a live re-check) — it never deletes on failure or an uncertain result. Every outcome (success/failure/reason) is logged to `/Users/patrykmac/homelab/photodl/logs/import-to-photos.log`.
-  - AppleScript gotcha (verified during install): `POSIX file thePath` must be coerced to a variable *before* the `tell application "Photos"` block, not inline as `import (POSIX file thePath) skip check duplicates yes` inside it — the inline form fails with `Can't get POSIX file "...". (-1728)` regardless of permissions, because the coercion appears to get evaluated in the wrong (remote-app) context when placed inline in a command sent to a scriptable app.
-  - One-time manual TCC grants required and already completed on this host for the import to work (there is no CLI-only way to grant these; they must be set once via System Settings, and are unaffected by this document being version-controlled since no secret is involved):
-    - **Automation**: System Settings → Privacy & Security → Automation → the venv's `python3.13` binary (`/opt/homebrew/Cellar/python@3.13/3.13.14_1/Frameworks/Python.framework/Versions/3.13/bin/python3.13`) → **Photos**, enabled. The very first request from this exact binary+target pair timed out unanswered (no physical display attached to this Mac mini) and macOS cached that as a **denied** decision (`kTCCAuthorizationReasonPromptTimeout`); a plain retry does not re-prompt once denied this way, so the toggle had to be enabled directly in System Settings while connected over Screen Sharing.
-    - **Full Disk Access**: System Settings → Privacy & Security → Full Disk Access → **Photos**, enabled, then Photos.app relaunched so the new entitlement took effect. Required because the staging directory is outside Photos' sandbox-preapproved locations.
-- Failure safety net (stuck-download monitor):
-  - Purpose: detect a staged file that `import-to-photos.sh` correctly left in place after a failed or unconfirmed import (see verify-before-delete above), rather than one merely mid-download.
-  - Script: `/Users/patrykmac/homelab/photodl/scripts/check-stuck-downloads.sh` (mode `700`), read-only with respect to the staging folder — it never deletes, moves, or otherwise touches a stuck file itself.
-  - LaunchAgent: `com.patrykmac.photodl-stuck-monitor` at `/Users/patrykmac/Library/LaunchAgents/com.patrykmac.photodl-stuck-monitor.plist`; `RunAtLoad` plus `StartInterval=300` (every 5 minutes), mirroring the `ssd-mini-monitor` `StartInterval` scheduling convention.
-  - Threshold: any regular file in the staging directory with an mtime older than ~30 minutes is considered stuck.
-  - Notification: reuses the existing shared credentials file `/Users/patrykmac/homelab/monitoring/config/pushover.env` (no separate/duplicated credentials); exact title `Mac Mini - PhotoDL import stuck`, priority 1. A small state file (`/Users/patrykmac/homelab/photodl/state/stuck-alerted.state`, transient, excluded from backup) tracks the currently-alerted file set so it only resends when the stuck set actually changes, not on every 5-minute tick.
-  - Log: `/Users/patrykmac/homelab/photodl/logs/stuck-downloads-monitor.log`, rotated to one `.1` predecessor at 2 MiB, matching the SSD-MINI/smart-health monitor convention.
-
-```sh
-# Status, restart, logs, port verification, HTTP check, disable, and re-enable only PhotoDL
-launchctl print gui/$(id -u)/com.patrykmac.photodl
-launchctl kickstart -k gui/$(id -u)/com.patrykmac.photodl
-tail -n 100 /Users/patrykmac/homelab/photodl/logs/launchd.stderr.log
-tail -n 100 /Users/patrykmac/homelab/photodl/logs/launchd.stdout.log
-lsof -nP -iTCP:8092 -sTCP:LISTEN
-curl -fsS -o /dev/null -w '%{http_code}\n' http://192.168.10.13:8092/gallery-dl
-launchctl bootout gui/$(id -u) /Users/patrykmac/Library/LaunchAgents/com.patrykmac.photodl.plist
-launchctl bootstrap gui/$(id -u) /Users/patrykmac/Library/LaunchAgents/com.patrykmac.photodl.plist
-
-# Stuck-download safety-net monitor: status, manual run, logs
-launchctl print gui/$(id -u)/com.patrykmac.photodl-stuck-monitor
-/Users/patrykmac/homelab/photodl/scripts/check-stuck-downloads.sh
-tail -n 100 /Users/patrykmac/homelab/photodl/logs/stuck-downloads-monitor.log
-```
-
 ## Beszel agent
 
 - Status: installed natively with Homebrew; this Mac mini runs the agent only and does not run a Beszel Hub.
