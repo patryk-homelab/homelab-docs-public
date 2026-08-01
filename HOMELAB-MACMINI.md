@@ -221,9 +221,7 @@ PATH="/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:$PATH" \
   - Uptime Kuma
   - AdGuard Home
   - MeTube
-  - PhotoDL
 - FileBrowser Quantum tile: requested as `Filebrowser - Mac` at `http://192.168.10.13:8085/`; the Homarr MCP connector was unavailable on this Mac mini during installation, so no app ID/dashboard item ID was created or recorded. When created through Homarr, it will auto-place in the first empty section and must be dragged manually into `Mac Mini`.
-- PhotoDL (gallery-dl-server) tile: URL and health check `http://192.168.10.13:8092/gallery-dl`; icon `pigallery2.svg` from Homarr's official dashboard-icons collection (the closest available gallery/photo visual); placed in `Mac Mini` on the iPhone, Fold, and MacBook layouts. `gallery-dl-server` exposes no dedicated health endpoint: the base `/gallery-dl` route returned `200`, while documented/common health paths returned `404`, so the base route is deliberately used for the health check too.
 - Homarr may also use the Mac mini's LAN-only Glances API as a data source for CPU/RAM metrics.
 - No Mac mini SSH, router, NAS, Homepage, Homarr, or Docker component is installed locally on this Mac mini; the dashboard entries are remote links only.
 
