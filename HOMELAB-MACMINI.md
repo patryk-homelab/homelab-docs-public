@@ -344,6 +344,19 @@ launchctl bootout gui/$(id -u) /Users/patrykmac/Library/LaunchAgents/com.patrykm
 launchctl bootstrap gui/$(id -u) /Users/patrykmac/Library/LaunchAgents/com.patrykmac.upsnap.plist
 ```
 
+## Beszel agent
+
+- Status: installed natively with Homebrew; this Mac mini runs the agent only and does not run a Beszel Hub.
+- Purpose: provide this Mac mini's monitoring data to the Beszel Hub on the Fedora miniPC; it has no local web UI of its own.
+- Homebrew formula/runtime version: `henrygd/beszel/beszel-agent` `0.18.7`.
+- Binary: `/opt/homebrew/bin/beszel-agent`; Homebrew service launcher: `/opt/homebrew/opt/beszel-agent/bin/beszel-agent-launcher`.
+- Private configuration: `/Users/patrykmac/.config/beszel/beszel-agent.env`, mode `600`, in a mode-`700` directory. It contains Hub-issued connection credentials and must never be printed, committed, or documented here.
+- Log: `/Users/patrykmac/.cache/beszel/beszel-agent.log` (transient).
+- Bind policy: listens only on `192.168.10.13:45876` through `LISTEN=192.168.10.13:45876`; it is deliberately not bound to `0.0.0.0`, localhost-only, or a Tailscale address.
+- Homebrew service: `beszel-agent` (launchd label `homebrew.mxcl.beszel-agent`), managed with `brew services restart beszel-agent`; it starts in the `patrykmac` user domain and restarts at login.
+- Backup/recovery: `~/.config/beszel/beszel-agent.env` is intentionally excluded from the Mac mini backup archive, consistent with FileBrowser Quantum's `secrets.env`; the archive's explicit allowlist does not stage this private file. If it is lost, use the Fedora Hub's **Add System** flow to obtain fresh values and reinstall/reconfigure the agent — never restore a credential from backup.
+- Resource/interaction note: lightweight native agent only; it adds no local UI, container runtime, or duplicate monitoring hub.
+
 ## FileBrowser Quantum
 
 - Status: installed natively on macOS; Docker Desktop is not installed or used.
