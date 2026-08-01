@@ -17,6 +17,7 @@ This file documents the current Mac mini backup/control homelab setup. It is doc
   - Tailscale connectivity
   - native MeTube service
   - native UpSnap Wake-on-LAN management
+  - native PhotoDL (gallery-dl-server) photo/gallery downloader service
   - wake/recovery target for remote access continuity
 - Full-system Time Machine and the separate homelab service/configuration backup are implemented.
 
