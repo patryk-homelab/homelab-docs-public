@@ -183,6 +183,13 @@ Wake-on: g
 | Synology DSM | `https://192.168.10.92:5001` | `5001` | External NAS | Synology DSM | No | Not hosted on miniPC. NAS stores backup copies. |
 | Tailscale Admin Console | `https://login.tailscale.com/admin/machines` | HTTPS | External SaaS | Tailscale account | No | Useful for tailnet administration, not hosted locally. |
 
+## Mail service
+
+- The real mailbox is `patryk@xdxd.uk`; docker-mailserver receives for domain `xdxd.uk` as hostname `mail.xdxd.uk`. TCP/25 is the intentional sole public-Internet service exception in this homelab and must accept connections from arbitrary remote mail servers. The container is already bound to `0.0.0.0:25`; the host firewalld rule and Cudy WR3600 TCP port-forward are still manual prerequisites before inbound Internet mail can work. Submission `587`, IMAPS `993`, SnappyMail `8089`, and Caddy HTTPS `443` bind only to `192.168.10.12`, so client access remains LAN/Tailscale-only.
+- docker-mailserver is pinned to `15.1.0` with Postfix, Dovecot, Rspamd/Redis, ClamAV, Fail2Ban, and Postscreen enabled; legacy Amavis, SpamAssassin, OpenDKIM, OpenDMARC, policyd-SPF, and Postgrey paths are disabled because Rspamd supplies the active filtering/DKIM path. SMTP/IMAP currently use a local-CA certificate for `mail.xdxd.uk`; SnappyMail trusts that CA and verifies the hostname. Inbound SMTP STARTTLS is opportunistic. Browser TLS for `webmail.xdxd.uk` is a separate trusted Let's Encrypt certificate obtained by internal Caddy through the `xdxd.uk` Cloudflare DNS-01 token.
+- Public DNS currently has the DNS-only `mail.xdxd.uk` A record, apex MX priority `10`, and SPF policy `v=spf1 mx ~all`. The generated RSA-2048 DKIM selector is `mail`; its `mail._domainkey.xdxd.uk` TXT record is still pending manual Cloudflare publication. DMARC is intentionally not published until end-to-end mail flow and DKIM are confirmed; begin with monitor-only `p=none`, then review reports before tightening SPF or DMARC.
+- `/home/patryk/docker/mailserver/config` is sensitive: it contains the password hash, DKIM private key, and local TLS private keys. Secret values and private keys must never be copied into this document, terminal output, or public repositories. Maildir, config/DKIM/TLS material, mail state, and SnappyMail state are private-backup-only and are required by restore verification.
+
 ## Homarr dashboard
 
 - Homarr `v1.71.0` is the approved primary miniPC dashboard. Its Compose file is `/home/patryk/docker/homarr/compose.yml`; all recoverable state is under `/home/patryk/docker/homarr/data`, with the encryption secret protected in `/home/patryk/docker/homarr/.env`.
