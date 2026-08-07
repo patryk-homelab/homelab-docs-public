@@ -762,10 +762,11 @@ Current backup includes:
   - `/home/patryk/scripts/homelab-backup.sh`
 - Restore verification script:
   - `/home/patryk/scripts/homelab-restore-verify.sh`
-- AdGuard DNS rewrite mirror:
+- AdGuard DNS rewrite mirror and filter subscription mirror:
   - `/home/patryk/scripts/adguard-mirror-sync.sh`
-  - protected `/home/patryk/scripts/adguard-mirror-sync.env` (mode `600`; private backup only, never in the public GitHub or Forgejo snapshots)
-  - `/etc/systemd/system/adguard-mirror-sync.service`
+  - `/home/patryk/scripts/adguard-filter-sync.sh`
+  - protected `/home/patryk/scripts/adguard-mirror-sync.env` (mode `600`; shared by both scripts; private backup only, never in the public GitHub or Forgejo snapshots)
+  - `/etc/systemd/system/adguard-mirror-sync.service` (runs both scripts as sequential `ExecStart` entries)
   - `/etc/systemd/system/adguard-mirror-sync.timer`
 - Canonical documentation mirror synchronization:
   - `/home/patryk/scripts/sync-homelab-md-mirror.sh`
