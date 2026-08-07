@@ -54,7 +54,7 @@ less ~/docker/HOMELAB.md
 - `192.168.10.12` is the Fedora miniPC running local AdGuard Home DNS.
 - `192.168.10.13` is the Mac mini running the secondary/fallback AdGuard Home DNS instance.
 - Goal in normal mode: keep ad blocking available through mirrored AdGuard instances while preserving local LAN visibility on the primary miniPC resolver when clients use it.
-- Important tradeoff: some clients may use both DHCP DNS servers in parallel instead of treating the second entry as strict failover.  DNS rewrites are therefore mirrored automatically every 15 minutes, one-way from Fedora (`192.168.10.12`) to the Mac mini (`192.168.10.13`); filter lists and upstream behavior remain a separate manual-parity concern.
+- Important tradeoff: some clients may use both DHCP DNS servers in parallel instead of treating the second entry as strict failover.  DNS rewrites and filter/blocklist subscriptions are therefore mirrored automatically every 15 minutes, one-way from Fedora (`192.168.10.12`) to the Mac mini (`192.168.10.13`); upstream behavior remains a separate manual-parity concern.
 - DNS maintenance mode: during Fedora/system update or reboot maintenance, the user may temporarily add a public resolver such as `1.1.1.1` as alternate DNS on the router.
 - That temporary maintenance-mode DNS fallback is intentional and is not automatically a misconfiguration.
 - Purpose of maintenance mode: keep internet access working if the miniPC or AdGuard Home is unavailable during update or reboot.
