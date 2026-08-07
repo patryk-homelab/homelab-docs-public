@@ -392,6 +392,13 @@ The final iPhone setup uses two separate medium-sized Scriptable widgets and two
   - **API and alerting**: authenticated Basic-auth calls use `GET /control/rewrite/list`, `POST /control/rewrite/add`, and `PUT /control/rewrite/update`.  Pushover title is exactly `MiniPC - AdGuard Sync`, sent only after a Mac correction or on detecting a Mac-only orphan—never for a routine in-sync run.
   - **Idempotency**: matching lists make no write calls and exit with `already in sync`.
 
+- **Workflow name**: AdGuard filter subscription mirror
+  - **Schedule**: same cadence as the DNS rewrite mirror above; runs as a second `ExecStart` in the same `adguard-mirror-sync.service` triggered by `adguard-mirror-sync.timer`, so both run back-to-back every 15 minutes.
+  - **Implementation**: `/home/patryk/scripts/adguard-filter-sync.sh`, sharing the same protected `/home/patryk/scripts/adguard-mirror-sync.env` (mode `600`) as the rewrite mirror; no separate systemd unit.
+  - **Direction and safety**: Fedora AdGuard (`192.168.10.12`) is the only source of truth. Unlike the rewrite mirror, this fully mirrors the Mac mini's enabled filter/blocklist subscriptions (both `filters` and `whitelist_filters`) to exactly match Fedora, matched by filter URL: missing lists are added, `enabled`/`name` differences are updated, and lists present on the Mac mini but absent on Fedora are removed. It never writes to Fedora.
+  - **API and alerting**: authenticated Basic-auth calls use `GET /control/filtering/status`, `POST /control/filtering/add_url`, `POST /control/filtering/set_url`, `POST /control/filtering/remove_url`, and `POST /control/filtering/refresh` (called only after a change, so the Mac mini's filter rule counts update immediately instead of waiting on AdGuard's own refresh interval). Pushover title is exactly `MiniPC - AdGuard Filter Sync`, sent only when a change was applied—never for a routine in-sync run.
+  - **Idempotency**: matching filter lists make no write calls and exit with `already in sync`.
+
 - **Workflow name**: Homelab repo collector
   - **Schedule**: daily at 09:00, `Persistent=true`.
   - **Purpose**: copies an explicit allowlist of homelab documentation, Compose files, operational scripts, and systemd unit files into the local Git repository `/home/patryk/homelab-repo`, giving configuration changes history and a rollback path. This is a one-way, read-only snapshot; nothing is deployed from `/home/patryk/homelab-repo`. The snapshot is pushed to Forgejo over SSH via a dedicated deploy key.
