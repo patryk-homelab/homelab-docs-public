@@ -1,6 +1,6 @@
 # Homelab Inventory
 
-Last updated: 2026-08-05
+Last updated: 2026-08-07
 
 This file documents the current miniPC Fedora homelab setup. It intentionally does not contain passwords, tokens, API keys, Uptime Kuma push URLs, or other secrets.
 
@@ -214,6 +214,7 @@ Wake-on: g
   - `UpSnap - Mac`: URL `http://192.168.10.13:8090`; health check `http://192.168.10.13:8090/api/health`.
   - `Uptime Kuma`: URL `http://192.168.10.12:3001`.
   - `Uptime Kuma - Mac`: URL `http://192.168.10.13:3003`.
+  - `Vikunja`: URL `https://vikunja.patrykw.uk/`; health check `http://192.168.10.12:3456/api/v1/info`.
   - `Wallos`: URL `http://192.168.10.12:8282`.
   - `Watcharr`: URL `http://192.168.10.12:8096/`; health check `http://192.168.10.12:8096/api/auth/available`.
   - `Web Console`: URL `https://192.168.10.12:9090/`.
